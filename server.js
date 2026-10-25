@@ -355,6 +355,12 @@ function handle(c, m) {
       for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send({ t: 'carhp', h }); }
       break;
     }
+    case 'gdmg': { // dano ao carro de fuga dos bandidos vale para todos na sala
+      const r = rooms.get(c.room); if (!r) return;
+      const out = { t: 'gdmg', d: int(m.d, 0, 100) };
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
+      break;
+    }
     case 'arr': { // prisão: todos na sala veem o mesmo NPC detido (visual e dono da custódia)
       const r = rooms.get(c.room); if (!r) return;
       const tr = m.tr && typeof m.tr === 'object' ? m.tr : {};
