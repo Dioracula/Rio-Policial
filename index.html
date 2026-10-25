@@ -415,7 +415,7 @@ function onClose(){roomCode='';roomMembers=[];clearRemotes();
  if(!playing||offline||noRecon)return;msg('Conexão perdida. Reconectando…',2500);tryRecon()}
 function tryRecon(){if(reconT||offline||noRecon)return;reconT=setTimeout(async()=>{reconT=null;
  try{await connect();send({t:'resume',token});const r=await waitAuth();
-  if(r.ok){friends=r.friends||[];saveGame();msg('Reconectado!',1500)}
+  if(r.ok){friends=r.friends||[];saveGame(true);msg('Reconectado!',1500)}
   else if(r.expired){offline=true;msg('Sessão expirada. Continuando offline.',3500)}
   else tryRecon()}catch(e){tryRecon()}},3000)}
 function menuIsSoc(){return $('menu').style.display==='flex'&&!!$('mbox').querySelector('[data-a=save]')}
@@ -433,7 +433,7 @@ function onMsg(m){switch(m.t){
  case 'kicked':noRecon=true;offline=true;msg('Sua conta entrou em outro aparelho. Continuando offline.',4000);break}}
 function begin(){$('login').style.display='none';playing=true;$('soc').style.display='block';hud();msg('Olá, '+nick+'! Vá à Central de Polícia (GPS).',3500)}
 function afterAuth(r){token=r.token;ls('pc_token',token);ls('pc_nick',r.nick);nick=r.nick;myKey=nick.toLowerCase();friends=r.friends||[];
- score=(r.save&&r.save.score)||0;missionN=(r.save&&r.save.missionN)||0;offline=false;noRecon=false;begin()}
+ score=(r.save&&r.save.score)||0;missionN=(r.save&&r.save.missionN)||0;lastSaved=score+':'+missionN;offline=false;noRecon=false;begin()}
 async function enter(mode){
  if(entering)return;const n=$('nk').value.trim(),p=$('pw').value,L=$('lst');
  if(!okN(n)){L.textContent='Nick: 3–12 letras, números ou _';return}
@@ -445,14 +445,16 @@ async function enter(mode){
   const cont=mode==='login'&&!p&&token&&n.toLowerCase()===String(ls('pc_nick')||'').toLowerCase();
   if(!cont&&!okP(p)){L.textContent='Senha: 4 a 40 caracteres';return}
   L.textContent='Conectando…';
-  try{if(!ws||ws.readyState!==1)await connect()}catch(e){L.textContent='Não consegui falar com o servidor. Tente de novo ou jogue offline.';return}
+  let ok=false;for(let i=0;i<6&&!ok;i++){try{if(!ws||ws.readyState!==1)await connect();ok=true}catch(e){if(i<5)L.textContent='Acordando o servidor… (pode levar 1 min) '+(i+1)+'/6'}}
+  if(!ok){L.textContent='Não consegui falar com o servidor. Tente de novo ou jogue offline.';return}
   send(cont?{t:'resume',token}:{t:mode==='reg'?'reg':'login',nick:n,pass:p});
   const r=await waitAuth();
   if(!r.ok){L.textContent=r.expired?'Sessão expirada. Digite a senha.':(r.err||'Erro ao entrar');if(r.expired){token=null;ls('pc_token',null)}return}
   $('pw').value='';afterAuth(r)
  }finally{entering=false}}
-function saveGame(){if(!playing)return;if(offline)ls('pc_save',{score,missionN});else send({t:'save',score,missionN})}
-function wipe(){if(!confirm('Apagar todo o seu progresso?'))return;score=0;missionN=0;if(offline)ls('pc_save',null);else send({t:'wipe'});hud();msg('Progresso apagado',2000)}
+let lastSaved='';
+function saveGame(force){if(!playing)return;if(offline){ls('pc_save',{score,missionN});return}const k=score+':'+missionN;if(!force&&k===lastSaved)return;if(ws&&ws.readyState===1){send({t:'save',score,missionN});lastSaved=k}}
+function wipe(){if(!confirm('Apagar todo o seu progresso?'))return;score=0;missionN=0;if(offline)ls('pc_save',null);else send({t:'wipe'});lastSaved='0:0';hud();msg('Progresso apagado',2000)}
 function nameTag(t){const c=document.createElement('canvas');c.width=256;c.height=64;const g=c.getContext('2d');g.fillStyle='#000a';g.fillRect(0,0,256,64);g.fillStyle='#7dff9a';g.font='bold 34px sans-serif';g.textAlign='center';g.fillText(t,128,44);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c)}));sp.scale.set(2,.5,1);sp.position.y=2.9;return sp}
 function leaveRoom(){send({t:'leave'});roomCode='';roomMembers=[];clearRemotes()}
 function updRemotes(dt){for(const k in remotes){const r=remotes[k],p=r.g.position,dx=r.tx-p.x,dz=r.tz-p.z,d=Math.hypot(dx,dz);if(d>40){p.x=r.tx;p.z=r.tz}else{p.x+=dx*Math.min(1,dt*8);p.z+=dz*Math.min(1,dt*8)}r.ph+=dt*9;walk(r.parts,r.ph,d>.15);r.g.rotation.y=r.tr||0}
@@ -466,7 +468,7 @@ function openSoc(){const was=menuIsSoc(),fv=$('fn')?$('fn').value:'';const nm=ro
 function socAct(a,n){
  if(a==='x'){$('menu').style.display='none';return}
  if(a==='rej'){send({t:'rej'});$('menu').style.display='none';return}
- if(a==='save'){saveGame();msg('Progresso salvo!',1500);return}
+ if(a==='save'){saveGame(true);msg('Progresso salvo!',1500);return}
  if(a==='wipe'){wipe();return}
  if(a==='leave'){leaveRoom();openSoc();return}
  if(a==='del'){send({t:'fdel',nick:n});return}
@@ -478,7 +480,7 @@ $('lgo').onclick=()=>enter('login');$('lreg').onclick=()=>enter('reg');$('loff')
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')enter('login')});
 $('soc').addEventListener('pointerdown',e=>{e.preventDefault();openSoc()});
 $('aimb').addEventListener('pointerdown',e=>{e.preventDefault();aim=!aim;$('aimb').style.background=aim?'#d29922':'#6e7681'});
-setInterval(()=>{if(playing)saveGame()},30000);addEventListener('pagehide',saveGame);
+setInterval(()=>{if(playing)saveGame()},30000);addEventListener('pagehide',()=>saveGame());
 {const o=ls('pc_nick');if(o)$('nk').value=o;
  if(!SERVER)$('lst').textContent='Sem servidor: só modo offline.';
  else if(token&&o){$('lst').textContent='Toque em ENTRAR para continuar como '+o;$('pw').placeholder='Senha (vazio = continuar)'}}

@@ -11,19 +11,84 @@ const MAX_USERS = +process.env.MAX_USERS || 5000;
 const NICK = /^[A-Za-z0-9_]{3,12}$/, MAXMSG = 8192, MAXROOM = 4, SESSION_MS = 30 * 864e5;
 const MISSIONS = ['roubo', 'homicídio', 'tráfico de drogas', 'banco', 'sequestro'];
 
-// ---------- Armazenamento (arquivo JSON, gravação atômica) ----------
+// ---------- Armazenamento ----------
+// Dois modos: (1) Upstash Redis via REST (grátis, sobrevive a reinícios; defina UPSTASH_REDIS_REST_URL e _TOKEN)
+//             (2) arquivo JSON em DATA_DIR (padrão; no Render grátis o arquivo some quando reinicia)
+const REDIS_URL = (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, ''), REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const REMOTE = !!(REDIS_URL && REDIS_TOKEN);
+const FLUSH_MS = REMOTE ? 10000 : 2000;
 fs.mkdirSync(DATA_DIR, { recursive: true });
 let db = { users: {}, sessions: {} };
-try { db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); db.users = db.users || {}; db.sessions = db.sessions || {}; } catch (e) {}
-let dirty = false;
-const persist = () => { dirty = true; };
-function flush() {
-  if (!dirty) return; dirty = false;
-  const tmp = DB_FILE + '.tmp';
-  try { fs.writeFileSync(tmp, JSON.stringify(db)); fs.renameSync(tmp, DB_FILE); } catch (e) { console.error('Erro ao salvar:', e.message); }
+const dirtyU = new Set(), dirtyS = new Set(), delS = new Set();
+let anyDirty = false;
+const touchUser = k => { dirtyU.add(k); anyDirty = true; };
+const touchSession = h => { dirtyS.add(h); delS.delete(h); anyDirty = true; };
+const dropSession = h => { delete db.sessions[h]; dirtyS.delete(h); delS.add(h); anyDirty = true; };
+
+async function redis(cmds) {
+  const r = await fetch(REDIS_URL + '/pipeline', {
+    method: 'POST', headers: { Authorization: 'Bearer ' + REDIS_TOKEN, 'Content-Type': 'application/json' },
+    body: JSON.stringify(cmds), signal: AbortSignal.timeout(10000)
+  });
+  if (!r.ok) throw new Error('Redis HTTP ' + r.status);
+  const out = await r.json();
+  for (const o of out) if (o.error) throw new Error(o.error);
+  return out.map(o => o.result);
 }
-setInterval(flush, 2000);
-for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { flush(); process.exit(0); });
+function pairs(a) {
+  const o = {};
+  const ent = Array.isArray(a) ? Array.from({ length: a.length >> 1 }, (_, i) => [a[2 * i], a[2 * i + 1]]) : Object.entries(a || {});
+  for (const [k, v] of ent) { try { o[k] = typeof v === 'string' ? JSON.parse(v) : v; } catch (e) {} }
+  return o;
+}
+async function loadDb() {
+  if (REMOTE) {
+    const [u, s] = await redis([['HGETALL', 'pc:users'], ['HGETALL', 'pc:sessions']]);
+    db.users = pairs(u); db.sessions = pairs(s);
+    if (!Object.keys(db.users).length) { // migração única: importa o arquivo local, se houver
+      try {
+        const old = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+        if (old.users && Object.keys(old.users).length) {
+          db.users = old.users; db.sessions = old.sessions || {};
+          Object.keys(db.users).forEach(touchUser); Object.keys(db.sessions).forEach(touchSession);
+          console.log('Contas importadas do arquivo local para o Redis.');
+        }
+      } catch (e) {}
+    }
+  } else {
+    try { db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); db.users = db.users || {}; db.sessions = db.sessions || {}; } catch (e) {}
+  }
+  console.log('Banco: ' + (REMOTE ? 'Upstash Redis' : 'arquivo ' + DB_FILE) + ' — ' + Object.keys(db.users).length + ' contas');
+}
+async function doFlush() {
+  if (!anyDirty) return true;
+  const us = [...dirtyU], ss = [...dirtyS], ds = [...delS];
+  dirtyU.clear(); dirtyS.clear(); delS.clear(); anyDirty = false;
+  try {
+    if (REMOTE) {
+      const cmds = [];
+      for (const k of us) if (db.users[k]) cmds.push(['HSET', 'pc:users', k, JSON.stringify(db.users[k])]);
+      for (const h of ss) if (db.sessions[h]) cmds.push(['HSET', 'pc:sessions', h, JSON.stringify(db.sessions[h])]);
+      for (const h of ds) cmds.push(['HDEL', 'pc:sessions', h]);
+      if (cmds.length) await redis(cmds);
+    } else {
+      const tmp = DB_FILE + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(db)); fs.renameSync(tmp, DB_FILE);
+    }
+    return true;
+  } catch (e) { // devolve à fila para tentar de novo
+    console.error('Erro ao salvar:', e.message);
+    us.forEach(touchUser); ss.forEach(touchSession); ds.forEach(h => { delS.add(h); anyDirty = true; });
+    return false;
+  }
+}
+let chain = Promise.resolve();
+const flush = () => (chain = chain.then(doFlush));
+setInterval(flush, FLUSH_MS);
+async function shutdown() { await Promise.race([flush(), new Promise(r => setTimeout(r, 4000))]); process.exit(0); }
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, shutdown);
+process.on('uncaughtException', e => console.error('Erro não tratado:', e));
+process.on('unhandledRejection', e => console.error('Promessa rejeitada:', e));
 
 // ---------- Utilidades ----------
 const now = () => Date.now();
@@ -43,7 +108,7 @@ setInterval(() => {
   for (const [k, a] of regHits) if (!a.length || t - a[a.length - 1] > 36e5) regHits.delete(k);
   for (const [k, f] of fails) if (t - f.t > 6e5) fails.delete(k);
   for (const [k, i] of invites) if (t - i.t > 3e5) invites.delete(k);
-  for (const [h, s] of Object.entries(db.sessions)) if (t - s.t > SESSION_MS) { delete db.sessions[h]; persist(); }
+  for (const [h, s] of Object.entries(db.sessions)) if (t - s.t > SESSION_MS) dropSession(h);
 }, 60000);
 
 // ---------- WebSocket mínimo (RFC 6455) ----------
@@ -123,8 +188,8 @@ function newSession(key) {
   const tok = crypto.randomBytes(24).toString('hex');
   db.sessions[sha(tok)] = { k: key, t: now() };
   const mine = Object.entries(db.sessions).filter(([, s]) => s.k === key).sort((a, b) => a[1].t - b[1].t);
-  while (mine.length > 5) delete db.sessions[mine.shift()[0]];
-  persist(); return tok;
+  while (mine.length > 5) dropSession(mine.shift()[0]);
+  touchSession(sha(tok)); return tok;
 }
 const friendList = key => db.users[key].friends.map(n => ({ n, on: online.has(n.toLowerCase()) }));
 function notifyFriends(key) {
@@ -137,7 +202,7 @@ function login(c, key, token) {
   const old = online.get(key);
   if (old && old !== c) { old.send({ t: 'kicked' }); dropUser(old); old.close(); }
   c.user = key; online.set(key, c);
-  const u = db.users[key];
+  const u = db.users[key]; u.last = now(); touchUser(key);
   c.send({ t: 'auth', ok: true, token, nick: u.nick, friends: friendList(key), save: u.save });
   notifyFriends(key);
 }
@@ -158,7 +223,7 @@ async function doAuth(c, m) {
       const tok = typeof m.token === 'string' ? m.token.slice(0, 100) : '';
       const s = db.sessions[sha(tok)];
       if (!s || now() - s.t > SESSION_MS || !db.users[s.k]) return err('Sessão expirada', { expired: true });
-      s.t = now(); persist();
+      if (now() - s.t > 864e5) { s.t = now(); touchSession(sha(tok)); }
       return login(c, s.k, tok);
     }
     const nick = String(m.nick || ''), pass = String(m.pass || '');
@@ -171,9 +236,14 @@ async function doAuth(c, m) {
       if (Object.keys(db.users).length >= MAX_USERS) return err('Servidor cheio');
       const salt = crypto.randomBytes(16).toString('hex'), hash = await hashPw(pass, salt);
       if (db.users[key]) return err('Esse nick já está em uso');
-      db.users[key] = { nick, salt, hash, friends: [], save: { score: 0, missionN: 0 }, created: now() };
-      persist();
-      return login(c, key, newSession(key));
+      db.users[key] = { nick, salt, hash, friends: [], save: { score: 0, missionN: 0 }, created: now(), last: now() };
+      touchUser(key);
+      const tok = newSession(key);
+      if (!(await flush())) { // conta só vale se foi gravada de verdade
+        delete db.users[key]; dirtyU.delete(key); dropSession(sha(tok));
+        return err('Não consegui salvar a conta agora. Tente de novo em instantes.');
+      }
+      return login(c, key, tok);
     }
     const f = fails.get(key);
     if (f && f.n >= 8 && now() - f.t < 6e5) return err('Conta bloqueada por alguns minutos (muitas tentativas)');
@@ -209,24 +279,27 @@ function leaveRoom(c) {
 function handle(c, m) {
   const me = c.user, u = db.users[me], info = s => c.send({ t: 'info', s });
   switch (m.t) {
-    case 'save':
-      u.save = { score: int(m.score, -1e9, 1e9), missionN: int(m.missionN, 0, 1e6) }; persist(); break;
+    case 'save': {
+      const sv = { score: int(m.score, -1e9, 1e9), missionN: int(m.missionN, 0, 1e6) };
+      if (sv.score !== u.save.score || sv.missionN !== u.save.missionN) { u.save = sv; touchUser(me); }
+      break;
+    }
     case 'wipe':
-      u.save = { score: 0, missionN: 0 }; persist(); break;
+      u.save = { score: 0, missionN: 0 }; touchUser(me); break;
     case 'logout':
-      if (typeof m.token === 'string') { delete db.sessions[sha(m.token.slice(0, 100))]; persist(); }
+      if (typeof m.token === 'string') dropSession(sha(m.token.slice(0, 100)));
       dropUser(c); break;
     case 'fadd': {
       const n = String(m.nick || ''), k = n.toLowerCase();
       if (!NICK.test(n) || k === me) return info('Nick inválido');
       const f = db.users[k]; if (!f) return info('Esse nick não existe');
       if (u.friends.length >= 50) return info('Lista de amigos cheia');
-      if (!u.friends.some(x => x.toLowerCase() === k)) { u.friends.push(f.nick); persist(); }
+      if (!u.friends.some(x => x.toLowerCase() === k)) { u.friends.push(f.nick); touchUser(me); }
       c.send({ t: 'friends', list: friendList(me) }); info('Amigo adicionado: ' + f.nick); break;
     }
     case 'fdel': {
       const k = String(m.nick || '').toLowerCase();
-      u.friends = u.friends.filter(x => x.toLowerCase() !== k); persist();
+      u.friends = u.friends.filter(x => x.toLowerCase() !== k); touchUser(me);
       c.send({ t: 'friends', list: friendList(me) }); break;
     }
     case 'inv': {
@@ -281,7 +354,7 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
       res.end(b);
     });
-  } else if (url === '/health') { res.writeHead(200); res.end('ok'); }
+  } else if (url === '/health') { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ ok: true, jogadores_online: online.size, contas: Object.keys(db.users).length, banco: REMOTE ? 'redis' : 'arquivo' })); }
   else { res.writeHead(404); res.end('404'); }
 });
 server.on('upgrade', (req, sock) => {
@@ -293,4 +366,12 @@ server.on('upgrade', (req, sock) => {
   const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
   new Conn(sock, ip);
 });
-server.listen(PORT, () => console.log('Policial da Cidade rodando na porta ' + PORT + ' (dados em ' + DATA_DIR + ')'));
+loadDb().then(() => {
+  server.listen(PORT, () => console.log('Policial da Cidade rodando na porta ' + PORT));
+  // Anti-sono: o servidor chama o próprio /health (Render define RENDER_EXTERNAL_URL sozinho).
+  const SELF = (process.env.SELF_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '');
+  if (SELF && process.env.KEEP_ALIVE !== '0') {
+    setInterval(() => fetch(SELF + '/health', { signal: AbortSignal.timeout(15000) }).catch(() => {}), 9 * 60 * 1000);
+    console.log('Anti-sono ligado: ' + SELF + '/health a cada 9 min');
+  }
+}).catch(e => { console.error('Falha ao abrir o banco (' + e.message + '). Verifique UPSTASH_REDIS_REST_URL/TOKEN.'); process.exit(1); });
