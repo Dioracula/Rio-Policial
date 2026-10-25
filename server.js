@@ -1,5 +1,5 @@
 'use strict';
-// Policial da Cidade — servidor (contas + multiplayer)
+// Policial da Cidade — servidor (contas + multiplayer). Sem dependências: só Node 18+.
 const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const { promisify } = require('util');
 const scrypt = promisify(crypto.scrypt);
@@ -10,7 +10,6 @@ const DB_FILE = path.join(DATA_DIR, 'users.json');
 const MAX_USERS = +process.env.MAX_USERS || 5000;
 const NICK = /^[A-Za-z0-9_]{3,12}$/, MAXMSG = 8192, MAXROOM = 4, SESSION_MS = 30 * 864e5;
 const LOOK_MAX = { skin: 8, hair: 5, hc: 8, glasses: 4, must: 3, beard: 4, fc: 8 };
-
 function cleanLook(l) {
   const o = {}; l = l && typeof l === 'object' ? l : {};
   for (const k in LOOK_MAX) { const v = Math.floor(+l[k]); o[k] = v >= 0 && v < LOOK_MAX[k] ? v : (k === 'skin' ? 2 : 0); }
@@ -18,6 +17,9 @@ function cleanLook(l) {
 }
 const MISSIONS = ['roubo', 'homicídio', 'tráfico de drogas', 'banco', 'sequestro'];
 
+// ---------- Armazenamento ----------
+// Dois modos: (1) Upstash Redis via REST (grátis, sobrevive a reinícios; defina UPSTASH_REDIS_REST_URL e _TOKEN)
+//             (2) arquivo JSON em DATA_DIR (padrão; no Render grátis o arquivo some quando reinicia)
 const REDIS_URL = (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, ''), REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 const REMOTE = !!(REDIS_URL && REDIS_TOKEN);
 const FLUSH_MS = REMOTE ? 10000 : 2000;
@@ -49,6 +51,16 @@ async function loadDb() {
   if (REMOTE) {
     const [u, s] = await redis([['HGETALL', 'pc:users'], ['HGETALL', 'pc:sessions']]);
     db.users = pairs(u); db.sessions = pairs(s);
+    if (!Object.keys(db.users).length) { // migração única: importa o arquivo local, se houver
+      try {
+        const old = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+        if (old.users && Object.keys(old.users).length) {
+          db.users = old.users; db.sessions = old.sessions || {};
+          Object.keys(db.users).forEach(touchUser); Object.keys(db.sessions).forEach(touchSession);
+          console.log('Contas importadas do arquivo local para o Redis.');
+        }
+      } catch (e) {}
+    }
   } else {
     try { db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); db.users = db.users || {}; db.sessions = db.sessions || {}; } catch (e) {}
   }
@@ -70,7 +82,8 @@ async function doFlush() {
       fs.writeFileSync(tmp, JSON.stringify(db)); fs.renameSync(tmp, DB_FILE);
     }
     return true;
-  } catch (e) {
+  } catch (e) { // devolve à fila para tentar de novo
+    console.error('Erro ao salvar:', e.message);
     us.forEach(touchUser); ss.forEach(touchSession); ds.forEach(h => { delS.add(h); anyDirty = true; });
     return false;
   }
@@ -78,12 +91,25 @@ async function doFlush() {
 let chain = Promise.resolve();
 const flush = () => (chain = chain.then(doFlush));
 setInterval(flush, FLUSH_MS);
+async function shutdown() { await Promise.race([flush(), new Promise(r => setTimeout(r, 4000))]); process.exit(0); }
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, shutdown);
+process.on('uncaughtException', e => console.error('Erro não tratado:', e));
+process.on('unhandledRejection', e => console.error('Promessa rejeitada:', e));
 
+// ---------- Utilidades ----------
 const now = () => Date.now();
 const num = (v, a, b) => { v = +v; return Number.isFinite(v) ? Math.max(a, Math.min(b, v)) : 0; };
 const int = (v, a, b) => Math.floor(num(v, a, b));
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
-const cleanCar = o => (!o || typeof o !== 'object') ? null : { x: +num(o.x, -2000, 2000).toFixed(2), z: +num(o.z, -2000, 2000).toFixed(2), r: +num(o.r, -10, 10).toFixed(2), hp: +num(o.hp, 0, 100).toFixed(2) };
+const cleanCar = o => (!o || typeof o !== 'object') ? null : { x: +num(o.x, -2000, 2000).toFixed(2), z: +num(o.z, -2000, 2000).toFixed(2), r: +num(o.r, -10, 10).toFixed(2), h: o.h == null ? 100 : int(o.h, 0, 100) };
+// Save do jogador: pontos, nível (xp), dinheiro, armas, munição, coletes e vida da viatura
+function cleanSave(m) {
+  const own = [...new Set((Array.isArray(m.own) ? m.own : [0]).map(x => int(x, 0, 9)))].slice(0, 12); if (!own.includes(0)) own.unshift(0);
+  const ammo = {}; if (m.ammo && typeof m.ammo === 'object') for (let i = 1; i < 10; i++) if (m.ammo[i] != null && own.includes(i)) ammo[i] = int(m.ammo[i], 0, 999);
+  const vests = {}; if (m.vests && typeof m.vests === 'object') for (let i = 0; i < 10; i++) if (m.vests[i] != null) { const d = int(m.vests[i], 0, 999); if (d > 0) vests[i] = d; }
+  const eq = int(m.eq, 0, 9), vo = Math.floor(+m.vestOn);
+  return { score: int(m.score, -1e9, 1e9), missionN: int(m.missionN, 0, 1e6), xp: int(m.xp, 0, 1e9), money: int(m.money, 0, 1e9), own, ammo, eq: own.includes(eq) ? eq : 0, vests, vestOn: vests[vo] != null ? vo : -1, carHp: int(m.carHp == null ? 100 : m.carHp, 0, 100) };
+}
 const hashPw = async (p, salt) => (await scrypt(p, salt, 64)).toString('hex');
 const safeEq = (a, b) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 function hits(map, key, windowMs, max) {
@@ -96,10 +122,11 @@ setInterval(() => {
   for (const [k, a] of ipHits) if (!a.length || t - a[a.length - 1] > 6e4) ipHits.delete(k);
   for (const [k, a] of regHits) if (!a.length || t - a[a.length - 1] > 36e5) regHits.delete(k);
   for (const [k, f] of fails) if (t - f.t > 6e5) fails.delete(k);
+  for (const [k, i] of invites) if (t - i.t > 3e5) invites.delete(k);
   for (const [h, s] of Object.entries(db.sessions)) if (t - s.t > SESSION_MS) dropSession(h);
 }, 60000);
 
-// WebSocket
+// ---------- WebSocket mínimo (RFC 6455) ----------
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 function frame(op, pl) {
   const l = pl.length; let h;
@@ -162,7 +189,15 @@ class Conn {
   }
 }
 setInterval(() => { for (const c of conns) c.cnt = 0; }, 1000);
+setInterval(() => {
+  for (const c of conns) {
+    if (!c.alive) { c.kill(); continue; }
+    c.alive = false;
+    try { c.sock.write(frame(9, Buffer.alloc(0))); } catch (e) {}
+  }
+}, 25000);
 
+// ---------- Contas ----------
 const online = new Map(), rooms = new Map(), invites = new Map();
 function newSession(key) {
   const tok = crypto.randomBytes(24).toString('hex');
@@ -198,7 +233,7 @@ async function doAuth(c, m) {
   if (c.busy) return; c.busy = true;
   const err = (e, extra) => c.send(Object.assign({ t: 'auth', ok: false, err: e }, extra));
   try {
-    if (!hits(ipHits, c.ip, 60000, 30)) return err('Muitas tentativas. Aguarde.');
+    if (!hits(ipHits, c.ip, 60000, 30)) return err('Muitas tentativas. Aguarde um minuto.');
     if (m.t === 'resume') {
       const tok = typeof m.token === 'string' ? m.token.slice(0, 100) : '';
       const s = db.sessions[sha(tok)];
@@ -211,32 +246,40 @@ async function doAuth(c, m) {
     if (pass.length < 4 || pass.length > 40) return err('Senha: 4 a 40 caracteres');
     const key = nick.toLowerCase();
     if (m.t === 'reg') {
+      if (!hits(regHits, c.ip, 36e5, 10)) return err('Muitas contas criadas daqui. Tente mais tarde.');
       if (db.users[key]) return err('Esse nick já está em uso');
       if (Object.keys(db.users).length >= MAX_USERS) return err('Servidor cheio');
       const salt = crypto.randomBytes(16).toString('hex'), hash = await hashPw(pass, salt);
-      db.users[key] = { nick, salt, hash, friends: [], save: { score: 0, missionN: 0, money: 0, xp: 0, weps: [1,0,0,0], eq: 0, ammo: 0, arm: 0 }, created: now(), last: now() };
+      if (db.users[key]) return err('Esse nick já está em uso');
+      db.users[key] = { nick, salt, hash, friends: [], save: { score: 0, missionN: 0 }, created: now(), last: now() };
       touchUser(key);
       const tok = newSession(key);
-      if (!(await flush())) { delete db.users[key]; dirtyU.delete(key); dropSession(sha(tok)); return err('Erro ao salvar conta.'); }
+      if (!(await flush())) { // conta só vale se foi gravada de verdade
+        delete db.users[key]; dirtyU.delete(key); dropSession(sha(tok));
+        return err('Não consegui salvar a conta agora. Tente de novo em instantes.');
+      }
       return login(c, key, tok);
     }
-    const f = fails.get(key), u = db.users[key], hash = await hashPw(pass, u ? u.salt : '0'.repeat(32));
-    if (!u || !safeEq(hash, u.hash)) { fails.set(key, { n: (f ? f.n : 0) + 1, t: now() }); return err('Nick ou senha incorretos'); }
+    const f = fails.get(key);
+    if (f && f.n >= 8 && now() - f.t < 6e5) return err('Conta bloqueada por alguns minutos (muitas tentativas)');
+    const u = db.users[key];
+    const hash = await hashPw(pass, u ? u.salt : '0'.repeat(32));
+    if (!u || !safeEq(hash, u.hash)) {
+      fails.set(key, { n: (f && now() - f.t < 6e5 ? f.n : 0) + 1, t: now() });
+      return err('Nick ou senha incorretos');
+    }
     fails.delete(key);
     return login(c, key, newSession(key));
   } finally { c.busy = false; }
 }
 
+// ---------- Salas ----------
 function roomState(r) {
-  const members = r.members.map(k => db.users[k].nick), looks = {}, xps = {};
-  for (const k of r.members) { 
-      const sv = db.users[k].save; 
-      if (sv && sv.look) looks[db.users[k].nick] = sv.look; 
-      xps[db.users[k].nick] = (sv && sv.xp) || 0;
-  }
+  const members = r.members.map(k => db.users[k].nick), looks = {};
+  for (const k of r.members) { const lk = db.users[k].save && db.users[k].save.look; if (lk) looks[db.users[k].nick] = lk; }
   const drv = r.driver && db.users[r.driver] ? db.users[r.driver].nick : '';
   const riders = (r.riders || [null, null, null]).map(k => (k && db.users[k]) ? db.users[k].nick : '');
-  for (const k of r.members) { const c = online.get(k); if (c) c.send({ t: 'room', code: r.host, members, looks, xps, drv, riders, car: r.car || null }); }
+  for (const k of r.members) { const c = online.get(k); if (c) c.send({ t: 'room', code: r.host, members, looks, drv, riders, car: r.car || null }); }
 }
 function leaveRoom(c) {
   const me = c.user, r = rooms.get(c.room);
@@ -249,42 +292,38 @@ function leaveRoom(c) {
     if (r.driver === me) r.driver = null;
     if (r.riders) { const idx = r.riders.indexOf(me); if (idx !== -1) r.riders[idx] = null; }
     r.members = r.members.filter(k => k !== me);
-    c.send({ t: 'room', code: '', members: [] }); roomState(r);
+    c.send({ t: 'room', code: '', members: [] });
+    roomState(r);
   }
 }
 function handle(c, m) {
   const me = c.user, u = db.users[me], info = s => c.send({ t: 'info', s });
   switch (m.t) {
     case 'save': {
-      const sv = { 
-          score: int(m.score, -1e9, 1e9), missionN: int(m.missionN, 0, 1e6),
-          money: int(m.money, 0, 1e9), xp: int(m.xp, 0, 1e9),
-          weps: Array.isArray(m.weps) ? m.weps.map(x=>int(x,0,1)) : [1,0,0,0],
-          eq: int(m.eq, 0, 3), ammo: int(m.ammo, 0, 1e6), arm: int(m.arm, 0, 100)
-      };
+      const sv = cleanSave(m);
       if (u.save.look) sv.look = u.save.look;
-      const oldXp = u.save.xp || 0;
-      u.save = sv; touchUser(me);
-      if (Math.floor(Math.sqrt((oldXp)/50)) !== Math.floor(Math.sqrt(sv.xp/50))) {
-        const r = rooms.get(c.room); if (r) roomState(r);
-      }
+      if (JSON.stringify(sv) !== JSON.stringify(u.save)) { u.save = sv; touchUser(me); }
       break;
     }
     case 'wipe': {
-      const lk = u.save.look; u.save = { score: 0, missionN: 0, money: 0, xp: 0, weps: [1,0,0,0], eq: 0, ammo: 0, arm: 0 }; if (lk) u.save.look = lk; touchUser(me); break;
+      const lk = u.save.look; u.save = { score: 0, missionN: 0 }; if (lk) u.save.look = lk; touchUser(me); break;
     }
-    case 'look': { u.save.look = cleanLook(m.look); touchUser(me); const r = rooms.get(c.room); if (r) roomState(r); break; }
-    case 'drive': {
+    case 'look': {
+      u.save.look = cleanLook(m.look); touchUser(me);
+      const r = rooms.get(c.room); if (r) roomState(r);
+      break;
+    }
+    case 'drive': { // só um jogador por vez dirige a viatura da sala
       const r = rooms.get(c.room);
       if (!r) { if (m.on) c.send({ t: 'drv', ok: true }); break; }
       if (m.on) {
-        if (r.driver && r.driver !== me && online.has(r.driver)) { c.send({ t: 'drv', ok: false }); info(db.users[r.driver].nick + ' já está dirigindo'); break; }
+        if (r.driver && r.driver !== me && online.has(r.driver)) { c.send({ t: 'drv', ok: false }); info(db.users[r.driver].nick + ' já está dirigindo a viatura'); break; }
         if (r.riders) { const idx = r.riders.indexOf(me); if (idx !== -1) r.riders[idx] = null; }
         r.driver = me; c.send({ t: 'drv', ok: true }); roomState(r);
       } else if (r.driver === me) { r.driver = null; roomState(r); }
       break;
     }
-    case 'ride': {
+    case 'ride': { // bancos de carona (até 3), só quem não está dirigindo
       const r = rooms.get(c.room);
       if (!r) { if (m.on) c.send({ t: 'ride', ok: false, err: 'Sem sala' }); break; }
       if (!r.riders) r.riders = [null, null, null];
@@ -297,32 +336,53 @@ function handle(c, m) {
           r.riders[idx] = me;
         }
         c.send({ t: 'ride', ok: true, seat: idx + 1 }); roomState(r);
-      } else { const idx = r.riders.indexOf(me); if (idx !== -1) { r.riders[idx] = null; roomState(r); } }
+      } else {
+        const idx = r.riders.indexOf(me);
+        if (idx !== -1) { r.riders[idx] = null; roomState(r); }
+      }
       break;
     }
-    case 'pres': {
+    case 'clue': { // uma pista achada por um jogador vale para todos na sala
       const r = rooms.get(c.room); if (!r) return;
-      const t = now(); if (t - c.lp < 30) return; c.lp = t;
-      const x = +num(m.x, -2000, 2000).toFixed(2), z = +num(m.z, -2000, 2000).toFixed(2), rr = +num(m.r, -10, 10).toFixed(2);
-      const dr = r.driver === me && +m.d === 1;
-      if (dr) { if (!r.car) r.car = {}; r.car.x = x; r.car.z = z; r.car.r = rr; r.car.hp = num(m.hp, 0, 100); }
-      if (r.members.length < 2) return;
-      const o = { t: 'pres', n: u.nick, x, z, r: rr, u: +num(m.u, -40, 40).toFixed(2), w: +num(m.w, -40, 40).toFixed(2), d: dr ? 1 : 0 };
-      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(o); }
-      break;
-    }
-    case 'clue':
-    case 'end':
-    case 'mis': {
-      const r = rooms.get(c.room); if (!r) return;
-      let out;
-      if (m.t === 'clue') out = { t: 'clue', i: int(m.i, 0, 50) };
-      else if (m.t === 'end') out = { t: 'end', text: String(m.text || '').slice(0, 140), pts: int(m.pts, -1000, 1000) };
-      else out = { t: 'mis', from: u.nick, o: { t: m.o.t, s: int(m.o.s, 1, 3) || 1 }, sd: int(m.sd, 0, 1e9) };
+      const i = int(m.i, 0, 50);
+      const out = { t: 'clue', i };
       for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
       break;
     }
-    case 'logout': if (typeof m.token === 'string') dropSession(sha(m.token.slice(0, 100))); dropUser(c); break;
+    case 'carhp': { // conserto da viatura vale para todos na sala
+      const r = rooms.get(c.room); if (!r) return;
+      const h = int(m.h, 0, 100); if (r.car) r.car.h = h;
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send({ t: 'carhp', h }); }
+      break;
+    }
+    case 'talk': { // conversa com a vítima do roubo vale para todos na sala
+      const r = rooms.get(c.room); if (!r) return;
+      const out = { t: 'talk', i: int(m.i, 0, 7), zx: +num(m.zx, -2000, 2000).toFixed(1), zz: +num(m.zz, -2000, 2000).toFixed(1) };
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
+      break;
+    }
+    case 'end': { // conclusão de missão (vitória/derrota) vale para todos na sala
+      const r = rooms.get(c.room); if (!r) return;
+      const out = { t: 'end', text: String(m.text || '').slice(0, 140), pts: int(m.pts, -1000, 1000) };
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
+      break;
+    }
+    case 'logout':
+      if (typeof m.token === 'string') dropSession(sha(m.token.slice(0, 100)));
+      dropUser(c); break;
+    case 'fadd': {
+      const n = String(m.nick || ''), k = n.toLowerCase();
+      if (!NICK.test(n) || k === me) return info('Nick inválido');
+      const f = db.users[k]; if (!f) return info('Esse nick não existe');
+      if (u.friends.length >= 50) return info('Lista de amigos cheia');
+      if (!u.friends.some(x => x.toLowerCase() === k)) { u.friends.push(f.nick); touchUser(me); }
+      c.send({ t: 'friends', list: friendList(me) }); info('Amigo adicionado: ' + f.nick); break;
+    }
+    case 'fdel': {
+      const k = String(m.nick || '').toLowerCase();
+      u.friends = u.friends.filter(x => x.toLowerCase() !== k); touchUser(me);
+      c.send({ t: 'friends', list: friendList(me) }); break;
+    }
     case 'inv': {
       const tk = String(m.nick || '').toLowerCase();
       if (!NICK.test(tk) || tk === me) return info('Nick inválido');
@@ -331,54 +391,73 @@ function handle(c, m) {
       let r = rooms.get(c.room);
       if (!r) { r = { hostKey: me, host: u.nick, members: [me], driver: null, riders: [null, null, null], car: cleanCar(m.car) }; rooms.set(me, r); c.room = me; }
       if (r.members.includes(tk)) return info(tu.nick + ' já está na sala');
-      if (r.members.length >= MAXROOM) return info('Sala cheia');
-      invites.set(tk, { host: r.hostKey, t: now() }); tc.send({ t: 'invite', from: u.nick, host: r.host });
+      if (r.members.length >= MAXROOM) return info('Sala cheia (4/4)');
+      invites.set(tk, { host: r.hostKey, t: now() });
+      tc.send({ t: 'invite', from: u.nick, host: r.host });
       roomState(r); info('Convite enviado para ' + tu.nick); break;
     }
+    case 'rej': invites.delete(me); break;
     case 'acc': {
       const hk = String(m.host || '').toLowerCase(), iv = invites.get(me), r = rooms.get(hk);
       if (!iv || iv.host !== hk || now() - iv.t > 3e5) return info('Convite expirado');
       if (!r || !online.has(hk)) return info('A sala não existe mais');
-      if (r.members.length >= MAXROOM) return info('Sala cheia');
-      invites.delete(me); leaveRoom(c);
+      if (r.members.length >= MAXROOM) return info('Sala cheia (4/4)');
+      invites.delete(me);
+      leaveRoom(c);
       r.members.push(me); c.room = hk; roomState(r);
       info('Você entrou na sala de ' + r.host); break;
     }
-    case 'rej': invites.delete(me); break;
     case 'leave': leaveRoom(c); break;
-    case 'fadd':
-    case 'fdel': {
-      const k = String(m.nick || '').toLowerCase();
-      if (m.t === 'fadd') {
-          const f = db.users[k]; if (!f) return info('Esse nick não existe');
-          if (!u.friends.some(x => x.toLowerCase() === k) && u.friends.length < 50) { u.friends.push(f.nick); touchUser(me); info('Amigo adicionado'); }
-      } else { u.friends = u.friends.filter(x => x.toLowerCase() !== k); touchUser(me); }
-      c.send({ t: 'friends', list: friendList(me) }); break;
+    case 'pres': {
+      const r = rooms.get(c.room); if (!r) return;
+      const t = now(); if (t - c.lp < 30) return; c.lp = t;
+      const x = +num(m.x, -2000, 2000).toFixed(2), z = +num(m.z, -2000, 2000).toFixed(2), rr = +num(m.r, -10, 10).toFixed(2);
+      const dr = r.driver === me && +m.d === 1;
+      if (dr) r.car = { x, z, r: rr, h: int(m.h == null ? 100 : m.h, 0, 100) };
+      if (r.members.length < 2) return;
+      const o = { t: 'pres', n: u.nick, x, z, r: rr, u: +num(m.u, -40, 40).toFixed(2), w: +num(m.w, -40, 40).toFixed(2), d: dr ? 1 : 0, q: int(m.q, 0, 9), lv: int(m.lv, 0, 100) };
+      if (dr) o.h = r.car.h;
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(o); }
+      break;
+    }
+    case 'mis': {
+      const r = rooms.get(c.room); if (!r) return;
+      const t = now(); if (t - c.lm < 1000) return; c.lm = t;
+      const o = m.o || {}; if (!MISSIONS.includes(o.t)) return;
+      const out = { t: 'mis', from: u.nick, o: { t: o.t, s: int(o.s, 1, 3) || 1 }, sd: int(m.sd, 0, 1e9) };
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
+      break;
     }
   }
 }
 
+// ---------- HTTP ----------
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
   if (url === '/' || url === '/index.html') {
     fs.readFile(path.join(__dirname, 'index.html'), (e, b) => {
       if (e) { res.writeHead(500); return res.end('index.html não encontrado'); }
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
       res.end(b);
     });
-  } else { res.writeHead(404); res.end('404'); }
+  } else if (url === '/health') { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ ok: true, jogadores_online: online.size, contas: Object.keys(db.users).length, banco: REMOTE ? 'redis' : 'arquivo' })); }
+  else { res.writeHead(404); res.end('404'); }
 });
 server.on('upgrade', (req, sock) => {
   const key = req.headers['sec-websocket-key'];
   if (String(req.headers.upgrade || '').toLowerCase() !== 'websocket' || !key) { sock.destroy(); return; }
   const accept = crypto.createHash('sha1').update(key + WS_GUID).digest('base64');
-  sock.write('HTTP/1.1 101 Switching Protocols
-Upgrade: websocket
-Connection: Upgrade
-Sec-WebSocket-Accept: ' + accept + '
-
-');
+  sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n');
   sock.setNoDelay(true);
-  new Conn(sock, req.socket.remoteAddress || '?');
+  const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
+  new Conn(sock, ip);
 });
-loadDb().then(() => { server.listen(PORT, () => console.log('Servidor Policial da Cidade rodando na porta ' + PORT)); });
+loadDb().then(() => {
+  server.listen(PORT, () => console.log('Policial da Cidade rodando na porta ' + PORT));
+  // Anti-sono: o servidor chama o próprio /health (Render define RENDER_EXTERNAL_URL sozinho).
+  const SELF = (process.env.SELF_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '');
+  if (SELF && process.env.KEEP_ALIVE !== '0') {
+    setInterval(() => fetch(SELF + '/health', { signal: AbortSignal.timeout(15000) }).catch(() => {}), 9 * 60 * 1000);
+    console.log('Anti-sono ligado: ' + SELF + '/health a cada 9 min');
+  }
+}).catch(e => { console.error('Falha ao abrir o banco (' + e.message + '). Verifique UPSTASH_REDIS_REST_URL/TOKEN.'); process.exit(1); });
