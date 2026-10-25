@@ -1,0 +1,8 @@
+{
+  "name": "policial-da-cidade",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servidor de contas e multiplayer do jogo Policial da Cidade",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
