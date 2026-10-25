@@ -272,14 +272,36 @@ function checkLvl(){const L=lvlOf(xp);if(L<=lvl)return;const o=rankIdx(lvl);lvl=
 function hurt(d){if(vestOn>=0&&(vests[vestOn]||0)>0){const v=VESTS[vestOn];vests[vestOn]-=Math.min(vests[vestOn],d);d*=1-v.prot;
   if(vests[vestOn]<=0){delete vests[vestOn];vestOn=-1;setVest(pl,-1);msg('Seu colete foi destruído!',2000)}}
  hp-=d}
+const TOW_COST=400,TOW_T=30,TOW_HP=30;let tow=null,wreckCol=null,towTruck=null;
+const carStage=()=>carHp<=0?{n:'💥 DESTRUÍDA',v:0}:carHp<15?{n:'⚠ crítica',v:8}:carHp<40?{n:'avariada',v:14}:carHp<70?{n:'danificada',v:20}:{n:'',v:24};
+const towLeft=()=>tow?Math.max(0,(tow.end-performance.now())/1000):0;
+function callTow(){if(tow||carHp>0)return;if(money<TOW_COST)return msg('Sem dinheiro para o reboque (R$ '+TOW_COST+')',2200);money-=TOW_COST;hud();saveGame(true);startTow(TOW_T,true);msg('Reboque chamado (-R$ '+TOW_COST+'). Remoção em '+TOW_T+'s',3000)}
+function startTow(sec,mine){if(tow)return;tow={end:performance.now()+sec*1000,mine};if(mine)send({t:'tow',on:1,sec})}
+function finishTow(){if(!tow)return;tow=null;if(towTruck){scene.remove(towTruck.g);towTruck=null}car.g.position.set(OFI.x,0,OFI.z);car.g.rotation.y=0;ch=0;cs=0;carHp=TOW_HP;hud();msg('Viatura rebocada para a Oficina com '+TOW_HP+'%. Conserte lá!',3500)}
+function wreckFx(){
+ {const w=carHp<=0;if(w&&!wreckCol){wreckCol={x:car.g.position.x,z:car.g.position.z,w:3.4,d:3.4,h:1.6};colliders.push(wreckCol)}else if(!w&&wreckCol){const i=colliders.indexOf(wreckCol);if(i>=0)colliders.splice(i,1);wreckCol=null}
+  car.g.children[0].material.color.setHex(carHp<=0?0x1c1c1c:carHp<15?0x7a7068:carHp<40?0xa89f96:carHp<70?0xd9d4cf:0xf2f2f2);car.g.rotation.z=carHp<=0?.05:0}
+ if(tow){const l=towLeft();
+  if(l<=8&&!towTruck&&carHp<=0){const k=buildCar(0xe8a33a,false),L=new THREE.Mesh(new THREE.BoxGeometry(.8,.2,.4),new THREE.MeshBasicMaterial({color:0xffaa00}));L.position.set(0,1.8,0);k.g.add(L);k.g.position.set(car.g.position.x+4,0,car.g.position.z);k.g.rotation.y=car.g.rotation.y;scene.add(k.g);towTruck={g:k.g,L}}
+  if(towTruck)towTruck.L.visible=Math.floor(time*6)%2===0;
+  if(l<=0){const mine=tow.mine;finishTow();if(mine)send({t:'tow',done:1,x:OFI.x,z:OFI.z,h:TOW_HP})}}}
+function custCount(){if(driving)return npcs.filter(n=>n.custody&&!n.remoteBy).length;const r=remoteDriver&&remotes[remoteDriver.toLowerCase()];return r?r.k|0:0}
+// Recebe a prisão de um parceiro: acha (ou cria) o NPC e aplica o mesmo visual, sob custódia dele
+function arrRemote(m){const flag=m.o==='r'?'robber':m.o==='k'?'kid':'isSuspect',x=+m.x||0,z=+m.z||0;let n=null,bd=60;
+ for(const q of npcs){if(!q[flag]||q.dead||q.arrested||q.custody)continue;const d=Math.hypot(q.mesh.position.x-x,q.mesh.position.z-z);if(d<bd){bd=d;n=q}}
+ if(!n)n=spawnNPC([x,z],{[flag]:true,hold:true});
+ const tr=m.tr||{},ci=v=>Math.max(0,Math.min(16777215,+v||0));
+ n.traits={cor:COLORS[tr.cor]!==undefined?tr.cor:'preta',bone:!!tr.bone,mochila:!!tr.mochila,altura:HS[tr.altura]?tr.altura:'médio'};n.pants=ci(m.pa);n.skin=ci(m.sk);n.hatC=ci(m.hc);
+ model(n);n.mesh.position.set(x,0,z);if(n.grab)release(n,true);n.t0=performance.now();n.arrested=true;n.parts.sm.color.set(0x777777);n.custody=true;n.remoteBy=String(m.by||'').toLowerCase();n.hold=true;n.down=0}
 function carDamage(d){if(d<=0)return;const was=carHp;carHp=Math.max(0,carHp-d);
- if(carHp<=0&&was>0)msg('Viatura destruída! Leve-a à Oficina (ao lado da Central): ela só anda devagar',3500);
- else if(carHp<25&&was>=25)msg('Viatura em estado crítico! Conserte na Oficina',2500);
- else if(carHp<50&&was>=50)msg('Viatura danificada',1800);
+ if(carHp<=0&&was>0)msg('Viatura DESTRUÍDA! Travou no lugar. Chame o reboque (R$ '+TOW_COST+')',4000);
+ else if(carHp<15&&was>=15)msg('Viatura em estado crítico! Quase parando',2500);
+ else if(carHp<40&&was>=40)msg('Viatura avariada: bem mais lenta',2200);
+ else if(carHp<70&&was>=70)msg('Viatura danificada: ficou mais lenta',1800);
  if(driving&&roomCode)sendPres(true)}
 function scoreHTML(){const ri=rankIdx(lvl),cur=xpFor(lvl),nx=lvl<100?xpFor(lvl+1):cur+1,pct=lvl>=100?100:Math.max(0,Math.min(100,Math.round((xp-cur)/(nx-cur)*100))),
   vs=(vestOn>=0&&vests[vestOn])?` 🦺${Math.round(vests[vestOn])}`:'';
- return `<div style="display:flex;align-items:center;gap:6px"><img src="${rankImg(ri)}" width="30" height="30" style="border-radius:5px"><div style="min-width:96px"><b>${RANKS[ri].ab} • Nv ${lvl}</b><div style="height:3px;background:#ffffff33;border-radius:2px;margin-top:3px"><div style="height:3px;width:${pct}%;background:#ffd24a;border-radius:2px"></div></div></div></div>Pontos: ${score} • 💵 ${money}<br>❤ ${Math.max(0,Math.round(hp))}${vs} • 🚓 ${Math.round(carHp)}%`}
+ return `<div style="display:flex;align-items:center;gap:6px"><img src="${rankImg(ri)}" width="30" height="30" style="border-radius:5px"><div style="min-width:96px"><b>${RANKS[ri].ab} • Nv ${lvl}</b><div style="height:3px;background:#ffffff33;border-radius:2px;margin-top:3px"><div style="height:3px;width:${pct}%;background:#ffd24a;border-radius:2px"></div></div></div></div>Pontos: ${score} • 💵 ${money}<br>❤ ${Math.max(0,Math.round(hp))}${vs} • 🚓 ${Math.round(carHp)}% ${carStage().n}${tow?' 🚛 '+Math.ceil(towLeft())+'s':''}`}
 function cycleWeapon(){const l=own.slice().sort((a,b)=>a-b);equip(l[(l.indexOf(eq)+1)%l.length])}
 
 // ---------- Aparência do personagem (pele, cabelo, óculos, bigode, barba) ----------
@@ -341,9 +363,9 @@ const OFI={x:9.5,z:-20.5},REP_K=3;
  [[1,4.45,0],[-1,-4.45,Math.PI]].forEach(([k,dz,ry])=>{const sg=new THREE.Mesh(new THREE.PlaneGeometry(6,1.5),new THREE.MeshBasicMaterial({map:tx}));sg.position.set(OFI.x,5.4,OFI.z+dz);sg.rotation.y=ry;scene.add(sg)});
  const rg=new THREE.Mesh(new THREE.CircleGeometry(2.2,24),new THREE.MeshBasicMaterial({color:0x39c5ff,transparent:true,opacity:.5}));rg.rotation.x=-Math.PI/2;rg.position.set(OFI.x,.16,OFI.z);scene.add(rg)}
 const smoke=[];for(let i=0;i<8;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(.28,6,5),new THREE.MeshBasicMaterial({color:0x555555,transparent:true,opacity:.5,depthWrite:false}));m.visible=false;car.g.add(m);smoke.push(m)}
-function updCarFx(){const bad=carHp<40;
+function updCarFx(){if(carHp<=0&&(driving||riding))toggleCar();wreckFx();const bad=carHp<40;
  for(let i=0;i<smoke.length;i++){const m=smoke[i];m.visible=bad;if(!bad)continue;
-  const t=(time*.8+i/smoke.length)%1;m.position.set(Math.sin(i*2.1+time)*.3,1.2+t*2.4,1.6);m.scale.setScalar(.5+t*1.6);m.material.opacity=(1-t)*.6;m.material.color.setHex(carHp<=0?0x111111:carHp<15?0x2a2a2a:0x666666)}}
+  const t=(time*.8+i/smoke.length)%1;m.position.set(Math.sin(i*2.1+time)*.3,1.2+t*2.4,1.6);m.scale.setScalar(.5+t*1.6);m.material.opacity=(1-t)*.6;m.material.color.setHex(carHp<=0?(i%3?0x111111:0xff7a1a):carHp<15?0x2a2a2a:0x666666)}}
 function repairCar(){const need=100-carHp;if(need<.5)return;const cost=Math.ceil(need*REP_K);
  if(money>=cost){money-=cost;carHp=100;msg('Viatura 100% consertada! -R$ '+cost,2200)}
  else{const can=Math.floor(money/REP_K);if(can<=0){msg('Sem dinheiro para consertar (R$ '+cost+')',2200);return}carHp+=can;money-=can*REP_K;msg('Reparo parcial: +'+can+'% por R$ '+can*REP_K,2500)}
@@ -386,7 +408,7 @@ function endMission(win,text,pts=0){if(mDone)return;mDone=true;pts*=mStars;addPt
 function neutralize(n,kind,dl){
  n.t0=performance.now();if(n.grab)release(n,true);
  if(kind==='arrest'){n.arrested=true;n.parts.sm.color.set(0x777777)}else{n.dead=true;n.mesh.rotation.z=Math.PI/2;n.mesh.position.y=.35}
- if(kind==='arrest'&&!dl&&(n.isSuspect||n.robber||n.kid)){n.custody=true;msg('Preso! Leve-o até a delegacia (siga o GPS)',3000);hud();return}
+ if(kind==='arrest'&&!dl&&(n.isSuspect||n.robber||n.kid)){n.custody=true;n.remoteBy=null;send({t:'arr',o:n.robber?'r':n.kid?'k':'s',tr:n.traits,pa:n.pants,sk:n.skin,hc:n.hatC,x:+n.mesh.position.x.toFixed(1),z:+n.mesh.position.z.toFixed(1)});msg('Preso! Leve-o até a delegacia (siga o GPS)',3000);hud();return}
  if(n.hostage)endMission(false,'O refém morreu! Missão fracassada');else if(n.isSuspect)endMission(true,kind==='arrest'?'Suspeito preso! +15 pontos':'Suspeito neutralizado. +8 pontos',kind==='arrest'?15:8);
  else if(n.robber){addPts(kind==='arrest'?5:3);msg(kind==='arrest'?'Criminoso preso! +5':'Criminoso abatido! +3',1500);
   if(!mDone&&robbers.every(r=>r.dead||r.delivered)){const b=30+Math.round(timeLeft/4);endMission(true,`Assalto contido! +${b} pontos`,b)}}
@@ -493,6 +515,7 @@ function toggleCar(){
  if(riding){send({t:'ride',on:false});riding=0;player.visible=true;const c=car.g.position,a=car.g.rotation.y;player.position.set(c.x+Math.sin(a+Math.PI/2)*3.2,0,c.z+Math.cos(a+Math.PI/2)*3.2);return}
  if(driving){leaveCar(true);return}
  if(Math.hypot(car.g.position.x-player.position.x,car.g.position.z-player.position.z)>=4.5)return;
+ if(carHp<=0){msg('Viatura destruída: chame o reboque',2000);return}
  if(remoteDriver){
   if(roomCode&&ws&&ws.readyState===1)send({t:'ride',on:true});else msg(sf(remoteDriver)+' já está dirigindo a viatura',2200);
   return}
@@ -625,7 +648,8 @@ function ctxUpdate(){const P=player.position;let a=null;
   else if(inside==='kid'){if(Math.hypot(P.x-KI.x,P.z-(KI.z+17))<4)a={l:'SAIR',f:()=>toWorld(extBack.x,extBack.z)}}
   else if(Math.hypot(P.x-HQD.x,P.z-(HQD.z-2.5))<3.5)a={l:'CENTRAL',f:()=>enterInt('hq')};
   else if(!mDone&&mtype==='kid'&&kb&&Math.hypot(P.x-kb.x,P.z-(kb.z+kb.d/2-1.2))<3.5)a={l:'ENTRAR',f:()=>enterInt('kid')};else if(!mDone&&victimN&&!victimTalked&&!inside&&Math.hypot(P.x-victimN.mesh.position.x,P.z-victimN.mesh.position.z)<3.6)a={l:'FALAR',f:()=>talkVictim()}}
- if(!a&&!inside&&carHp<99.5){if(Math.hypot(car.g.position.x-OFI.x,car.g.position.z-OFI.z)<4.4&&(driving||riding||Math.hypot(P.x-OFI.x,P.z-OFI.z)<8))a={l:'CONSERTAR R$'+Math.ceil((100-carHp)*REP_K),f:repairCar}}
+ if(!a&&!inside&&carHp<=0&&!tow&&!driving&&!riding&&Math.hypot(P.x-car.g.position.x,P.z-car.g.position.z)<9)a={l:'REBOQUE R$'+TOW_COST,f:callTow};
+ if(!a&&!inside&&carHp>0&&carHp<99.5){if(Math.hypot(car.g.position.x-OFI.x,car.g.position.z-OFI.z)<4.4&&(driving||riding||Math.hypot(P.x-OFI.x,P.z-OFI.z)<8))a={l:'CONSERTAR R$'+Math.ceil((100-carHp)*REP_K),f:repairCar}}
  $('xh').style.display=!aimOn||$('menu').style.display==='flex'?'none':'block';act=a;const b=$('ab');b.style.display=a?'block':'none';if(a)b.textContent=a.l}
 
 // ---------- Controles ----------
@@ -683,7 +707,7 @@ function loop(){
  let ix=joy.x,iy=joy.y;if(keys.w||keys.arrowup)iy-=1;if(keys.s||keys.arrowdown)iy+=1;if(keys.a||keys.arrowleft)ix-=1;if(keys.d||keys.arrowright)ix+=1;
  if(editApp||riding){ix=iy=0}const len=Math.hypot(ix,iy),moving=len>.05;
  if(driving){
-  const acc=Math.abs(iy)>.05?-iy:0;cs+=acc*22*dt;if(!acc)cs*=1-Math.min(1,2.5*dt);{const vm=carHp<=0?7:12+12*Math.min(1,carHp/50);cs=Math.max(-8,Math.min(vm,cs))}
+  const acc=Math.abs(iy)>.05?-iy:0;cs+=acc*22*dt;if(!acc)cs*=1-Math.min(1,2.5*dt);{const vm=carStage().v;cs=Math.max(-vm/3,Math.min(vm,cs))}
   ch-=ix*1.9*dt*Math.max(-1,Math.min(1,cs/6));
   const c=car.g,nx=c.position.x+Math.sin(ch)*cs*dt,nz=c.position.z+Math.cos(ch)*cs*dt;
   if(collides(nx,nz,1.6)||Math.abs(nx)>B||Math.abs(nz)>B){if(Math.abs(cs)>5&&time-lastBump>.6){lastBump=time;carDamage(Math.abs(cs)*.9)}cs*=-.3}else{c.position.x=nx;c.position.z=nz}
@@ -709,10 +733,11 @@ function loop(){
     else if(gcar.g.position.x>BK.x+55)endMission(false,'Os criminosos fugiram da cidade! Missão perdida')}}}
  if(!mDone&&mtype==='kid'&&hostageN){timeLeft-=dt;if(timeLeft<=0)neutralize(hostageN,'kill')}
  near=null;let nd=3.4;
- for(const n of npcs){if(n.custody){const p=n.mesh.position,dx=P.x-p.x,dz=P.z-p.z,dd=Math.hypot(dx,dz);let mv=false;
-  if(driving){p.x=P.x;p.z=P.z;n.mesh.visible=false}else{n.mesh.visible=true;if(dd>2.5){const nx=p.x+dx/dd*5.5*dt,nz=p.z+dz/dd*5.5*dt;if(!collides(nx,p.z,.5)){p.x=nx;mv=true}if(!collides(p.x,nz,.5)){p.z=nz;mv=true}n.mesh.rotation.y=Math.atan2(dx,dz)}}
+ for(const n of npcs){if(n.custody){const p=n.mesh.position,own=!n.remoteBy,rr=own?null:remotes[n.remoteBy];if(!own&&!rr){walk(n.parts,n.ph,false);continue}
+  const T=own?P:rr.g.position,inCar=own?driving:rr.drv,dx=T.x-p.x,dz=T.z-p.z,dd=Math.hypot(dx,dz);let mv=false;n.inCar=inCar;
+  if(inCar){p.x=T.x;p.z=T.z;n.mesh.visible=false}else{n.mesh.visible=true;if(dd>2.5){const nx=p.x+dx/dd*5.5*dt,nz=p.z+dz/dd*5.5*dt;if(!collides(nx,p.z,.5)){p.x=nx;mv=true}if(!collides(p.x,nz,.5)){p.z=nz;mv=true}n.mesh.rotation.y=Math.atan2(dx,dz)}}
   n.ph+=dt*8;walk(n.parts,n.ph,mv);
-  if(Math.hypot(p.x-HQD.x,p.z-HQD.z)<6&&Math.hypot(P.x-HQD.x,P.z-HQD.z)<8){n.custody=false;n.delivered=true;n.mesh.visible=false;neutralize(n,'arrest',true)}
+  if(own&&Math.hypot(p.x-HQD.x,p.z-HQD.z)<6&&Math.hypot(P.x-HQD.x,P.z-HQD.z)<8){n.custody=false;n.delivered=true;n.mesh.visible=false;neutralize(n,'arrest',true);send({t:'dlv'})}
   continue}
  if(n.dead||n.arrested||n.boarded)continue;const p=n.mesh.position;
   let sp=1.4;const dp=Math.hypot(p.x-P.x,p.z-P.z),esc=n.robber&&phase==='escape'&&!mDone;
@@ -737,7 +762,7 @@ function loop(){
  cdist=cd;if(victimN&&victimN.beam)victimN.beam.userData.d.rotation.y+=dt*2;if(time%.5<dt)hud();
  const on=Math.floor(time*6)%2;car.lights[0].material.color.set(on?0xff2222:0x330000);car.lights[1].material.color.set(on?0x112244:0x2266ff);
  const nc=Math.hypot(car.g.position.x-player.position.x,car.g.position.z-player.position.z)<4.5,cb=$('car');
- cb.style.display=(driving||riding||nc)?'block':'none';cb.textContent=(driving||riding)?'SAIR':(remoteDriver?'CARONA':'ENTRAR');
+ cb.style.display=(driving||riding||(nc&&carHp>0))?'block':'none';cb.textContent=(driving||riding)?'SAIR':(remoteDriver?'CARONA':'ENTRAR');
  $('arrest').style.opacity=(driving||riding)?.35:1;$('shoot').style.opacity=driving?.35:1;
  if(hp<=0){hp=100;if(driving)leaveCar(false);player.visible=true;toWorld(0,-8);cs=0;if(!mDone)endMission(false,'Você foi baleado! Missão perdida');else msg('Você foi baleado!')}
  for(const n of npcs){const en=(n.robber||n.kid||n.isSuspect)&&!n.dead&&!n.arrested&&n.mesh.visible&&n.revealed;
@@ -791,7 +816,7 @@ function onMsg(m){switch(m.t){
   for(const k in remotes)if(!low.includes(k)){scene.remove(remotes[k].g);delete remotes[k]}
   if(m.looks)for(const nn in m.looks){const k=nn.toLowerCase(),lk=cleanLook(m.looks[nn]);if(k===myKey)continue;if(JSON.stringify(remoteLooks[k])!==JSON.stringify(lk)){remoteLooks[k]=lk;if(remotes[k])applyLook(remotes[k],lk)}}
   remoteDriver=(roomCode&&m.drv&&String(m.drv).toLowerCase()!==myKey)?String(m.drv):'';
-  riderSeats=(m.riders||['','','']).map(String);
+  riderSeats=(m.riders||['','','']).map(String);if(m.tow>0&&!tow)startTow(+m.tow,false);
   if(riding&&String(riderSeats[riding-1]||'').toLowerCase()!==myKey){riding=0;player.visible=true}
   if(roomCode){if(m.car&&m.car.h!=null&&!driving)carHp=Math.max(0,Math.min(100,+m.car.h||0));if(m.car&&!driving&&Math.hypot(+m.car.x-car.g.position.x,+m.car.z-car.g.position.z)>(remoteDriver?8:.5))snapCar(m.car);
    if(driving){if(remoteDriver)leaveCar(true);else if(!m.drv)send({t:'drive',on:true})}}
@@ -801,14 +826,17 @@ function onMsg(m){switch(m.t){
  case 'end':{if(!mDone){mDone=true;addPts(+m.pts||0);if(suspect){suspect.isSuspect=false;suspect.armed=false;suspect=null}msg(String(m.text||'Missão concluída pelo parceiro!').slice(0,140),3000);endKid();clearClues();notes=[];if(bankBeam){scene.remove(bankBeam);bankBeam=null}genOffers();hud();saveGame()}break}
  case 'pres':{if(!roomCode||typeof m.n!=='string')break;const k=m.n.toLowerCase();if(k===myKey)break;let r=remotes[k];if(!r)r=remotes[k]=newRemote(sf(m.n),m.x,m.z);
   {const nx=+m.x||0,nz=+m.z||0,L=r.sn[r.sn.length-1];if(L&&Math.hypot(nx-L.x,nz-L.z)>14)r.sn.length=0;r.sn.push({t:performance.now(),x:nx,z:nz,r:+m.r||0});if(r.sn.length>16)r.sn.shift()}
-  r.tx=+m.x||0;r.tz=+m.z||0;r.tr=+m.r||0;r.vx=+m.u||0;r.vz=+m.w||0;r.lt=performance.now();r.drv=!!m.d;
+  r.tx=+m.x||0;r.tz=+m.z||0;r.tr=+m.r||0;r.vx=+m.u||0;r.vz=+m.w||0;r.lt=performance.now();r.drv=!!m.d;r.k=m.k|0;
   if(m.q!==undefined&&(m.q|0)!==r.wid)setHandWeapon(r,m.q|0);
   if(m.lv&&(m.lv|0)!==r.lv){r.lv=m.lv|0;r.ri=rankIdx(r.lv);setRank(r,r.ri);retag(r)}
   if(r.drv&&m.h!==undefined)carHp=Math.max(0,Math.min(100,+m.h||0));
   if(r.stale){r.stale=false;retag(r)}break}
- case 'drv':{if(pendingDrive){pendingDrive=0;if(m.ok){if(!driving&&Math.hypot(car.g.position.x-player.position.x,car.g.position.z-player.position.z)<6)boardCar();else send({t:'drive',on:false})}}break}
+ case 'drv':{if(pendingDrive){pendingDrive=0;if(m.ok){if(!driving&&carHp>0&&Math.hypot(car.g.position.x-player.position.x,car.g.position.z-player.position.z)<6)boardCar();else send({t:'drive',on:false})}}break}
  case 'mis':{if(!m.o||!TN[m.o.t])break;toWorld(HQD.x,-22);genOffers();startSeeded({t:m.o.t,s:Math.min(3,Math.max(1,+m.o.s||1))},+m.sd||1);msg(sf(m.from)+' iniciou uma missão da sala!',2500);break}
  case 'carhp':carHp=Math.max(0,Math.min(100,+m.h||0));hud();break;
+ case 'arr':arrRemote(m);break;
+ case 'dlv':{const by=String(m.by||'').toLowerCase();for(const n of npcs)if(n.custody&&n.remoteBy===by&&Math.hypot(n.mesh.position.x-HQD.x,n.mesh.position.z-HQD.z)<14){n.custody=false;n.delivered=true;n.mesh.visible=false}break}
+ case 'tow':{if(m.done)finishTow();else startTow(+m.sec||TOW_T,false);break}
  case 'talk':talkVictim({i:m.i|0,zx:m.zx,zz:m.zz});break;
  case 'info':msg(String(m.s).slice(0,80),2200);break;
  case 'kicked':noRecon=true;offline=true;msg('Sua conta entrou em outro aparelho. Continuando offline.',4000);break}}
@@ -854,16 +882,16 @@ function sendPres(force){
  if(!force&&!mv&&!wasMov&&dtp<1)return;
  let u=0,w=0;if(mv&&dtp<1&&lsx<1e8){u=(P.x-lsx)/dtp;w=(P.z-lsz)/dtp;const l=Math.hypot(u,w);if(l>40){u*=40/l;w*=40/l}}
  lastSendT=t;lsx=P.x;lsz=P.z;lsr=r;wasMov=mv;
- send({t:'pres',x:+P.x.toFixed(2),z:+P.z.toFixed(2),r:+r.toFixed(2),u:+u.toFixed(2),w:+w.toFixed(2),d:driving?1:0,q:eq,lv:lvl,h:Math.round(carHp)})}
+ send({t:'pres',x:+P.x.toFixed(2),z:+P.z.toFixed(2),r:+r.toFixed(2),u:+u.toFixed(2),w:+w.toFixed(2),d:driving?1:0,q:eq,lv:lvl,h:Math.round(carHp),k:driving?npcs.filter(n=>n.custody&&!n.remoteBy).length:0})}
 function sampleSn(sn,rt,vx,vz){const n=sn.length;if(!n)return null;const L=sn[n-1];
  if(rt>=L.t){const e=Math.min((rt-L.t)/1000,.25);return{x:L.x+vx*e,z:L.z+vz*e,r:L.r}}
  for(let i=n-1;i>0;i--){const a=sn[i-1];if(a.t<=rt){const b=sn[i],f=(rt-a.t)/Math.max(1,b.t-a.t);return{x:a.x+(b.x-a.x)*f,z:a.z+(b.z-a.z)*f,r:a.r+wrapA(b.r-a.r)*f}}}
  return sn[0]}
 let carTag=null,carTagKey='';
-function updCarTag(){const occ=[];if(remoteDriver)occ.push(remoteDriver);for(const s of riderSeats)if(s&&String(s).toLowerCase()!==myKey)occ.push(s);
- const key=occ.join('|');if(key===carTagKey)return;carTagKey=key;
+function updCarTag(){const cc=custCount(),cu=$('cust');cu.style.display=cc>0?'block':'none';if(cc>0)cu.textContent='🚔 Presos na viatura: '+cc;const occ=[];if(remoteDriver)occ.push(remoteDriver);for(const s of riderSeats)if(s&&String(s).toLowerCase()!==myKey)occ.push(s);
+ const key=occ.join('|')+'#'+cc;if(key===carTagKey)return;carTagKey=key;
  if(carTag){car.g.remove(carTag);if(carTag.material.map)carTag.material.map.dispose();carTag.material.dispose();carTag=null}
- if(occ.length){carTag=nameTag('🚓 '+occ.map(sf).join(' • '),'#7dff9a',occ.length>1?512:256);carTag.position.y=3.4;car.g.add(carTag)}}
+ if(occ.length){carTag=nameTag('🚓 '+occ.map(sf).join(' • ')+(cc?' • 🔒 '+cc+(cc>1?' presos':' preso'):''),'#7dff9a',occ.length>1||cc?512:256);carTag.position.y=3.4;car.g.add(carTag)}}
 function updRemotes(dt){
  const now=performance.now(),rt=now-110,rd=remoteDriver.toLowerCase(),seats=riderSeats.map(s=>String(s).toLowerCase());
  for(const k in remotes){const r=remotes[k],p=r.g.position,age=(now-r.lt)/1000,st=age>3;
@@ -885,6 +913,7 @@ function openSoc(){plainMenu();const was=menuIsSoc(),fv=$('fn')?$('fn').value:''
  '<button data-a="save" style="background:#2ea043">Salvar progresso</button><button data-a="wipe" style="background:#da3633">Apagar progresso</button>'+(offline?'':'<button data-a="out" style="background:#444">Sair da conta</button>')+'<button data-a="x" style="background:#444;text-align:center">Fechar</button>';
  if($('fn'))$('fn').value=fv;$('menu').style.display='flex';if(!was)menuT=performance.now()}
 function openMain(){plainMenu();$('mbox').innerHTML='<b style="font-size:16px">☰ Menu</b><button data-a="prof">🏅 Perfil e patentes</button><button data-a="arsenal">🎒 Armas e coletes</button><button data-a="cfg">⚙️ Configurações</button><button data-a="ap">🎨 Editar aparência</button><button data-a="soc">👥 Amigos e sala</button><button data-a="x" style="background:#444;text-align:center">Fechar</button>';$('menu').style.display='flex';menuT=performance.now()}
+{const d=document.createElement('div');d.id='cust';d.className='p';d.style.cssText='position:fixed;top:calc(env(safe-area-inset-top,0px) + 50px);right:8px;z-index:6;display:none;pointer-events:none;font-weight:700;color:#ffd24a';document.body.appendChild(d)}
 const fsEl=()=>document.fullscreenElement||document.webkitFullscreenElement,fsOk=()=>!!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
 function fsBtn(){return fsOk()?`<button data-a="fs" style="background:${fsEl()?'#d29922':'#1f6feb'};text-align:center;margin-top:12px">${fsEl()?'🗗 Sair da tela cheia':'⛶ Ativar tela cheia'}</button>`:'<div style="font-size:11px;color:#9fb0c3;margin-top:12px">Tela cheia indisponível neste navegador. No iPhone: Compartilhar → Adicionar à Tela de Início.</div>'}
 function toggleFS(){const d=document,e=d.documentElement;try{if(fsEl()){(d.exitFullscreen||d.webkitExitFullscreen).call(d);try{screen.orientation.unlock()}catch(_){}}else{Promise.resolve((e.requestFullscreen||e.webkitRequestFullscreen).call(e)).then(()=>{try{return screen.orientation.lock('landscape')}catch(_){}}).catch(()=>{})}}catch(x){}}

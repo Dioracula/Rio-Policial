@@ -279,7 +279,7 @@ function roomState(r) {
   for (const k of r.members) { const lk = db.users[k].save && db.users[k].save.look; if (lk) looks[db.users[k].nick] = lk; }
   const drv = r.driver && db.users[r.driver] ? db.users[r.driver].nick : '';
   const riders = (r.riders || [null, null, null]).map(k => (k && db.users[k]) ? db.users[k].nick : '');
-  for (const k of r.members) { const c = online.get(k); if (c) c.send({ t: 'room', code: r.host, members, looks, drv, riders, car: r.car || null }); }
+  for (const k of r.members) { const c = online.get(k); if (c) c.send({ t: 'room', code: r.host, members, looks, drv, riders, car: r.car || null, tow: r.tow ? Math.max(0, Math.ceil((r.tow - now()) / 1000)) : 0 }); }
 }
 function leaveRoom(c) {
   const me = c.user, r = rooms.get(c.room);
@@ -355,6 +355,27 @@ function handle(c, m) {
       for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send({ t: 'carhp', h }); }
       break;
     }
+    case 'arr': { // prisão: todos na sala veem o mesmo NPC detido (visual e dono da custódia)
+      const r = rooms.get(c.room); if (!r) return;
+      const tr = m.tr && typeof m.tr === 'object' ? m.tr : {};
+      const out = { t: 'arr', by: u.nick, o: ['r', 'k', 's'].includes(m.o) ? m.o : 's', tr: { cor: String(tr.cor || '').slice(0, 12), bone: !!tr.bone, mochila: !!tr.mochila, altura: String(tr.altura || '').slice(0, 8) },
+        pa: int(m.pa, 0, 0xffffff), sk: int(m.sk, 0, 0xffffff), hc: int(m.hc, 0, 0xffffff), x: +num(m.x, -2000, 2000).toFixed(1), z: +num(m.z, -2000, 2000).toFixed(1) };
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
+      break;
+    }
+    case 'dlv': { // entrega do preso na delegacia
+      const r = rooms.get(c.room); if (!r) return;
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send({ t: 'dlv', by: u.nick }); }
+      break;
+    }
+    case 'tow': { // reboque da viatura destruída: começa/termina para todos na sala
+      const r = rooms.get(c.room); if (!r) return;
+      let out;
+      if (m.done) { r.tow = 0; r.car = { x: +num(m.x, -2000, 2000).toFixed(2), z: +num(m.z, -2000, 2000).toFixed(2), r: 0, h: int(m.h, 0, 100) }; out = { t: 'tow', done: 1 }; }
+      else { const sec = int(m.sec, 5, 120); if (r.tow && r.tow > now()) return; r.tow = now() + sec * 1000; out = { t: 'tow', on: 1, sec }; }
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
+      break;
+    }
     case 'talk': { // conversa com a vítima do roubo vale para todos na sala
       const r = rooms.get(c.room); if (!r) return;
       const out = { t: 'talk', i: int(m.i, 0, 7), zx: +num(m.zx, -2000, 2000).toFixed(1), zz: +num(m.zz, -2000, 2000).toFixed(1) };
@@ -415,7 +436,7 @@ function handle(c, m) {
       const dr = r.driver === me && +m.d === 1;
       if (dr) r.car = { x, z, r: rr, h: int(m.h == null ? 100 : m.h, 0, 100) };
       if (r.members.length < 2) return;
-      const o = { t: 'pres', n: u.nick, x, z, r: rr, u: +num(m.u, -40, 40).toFixed(2), w: +num(m.w, -40, 40).toFixed(2), d: dr ? 1 : 0, q: int(m.q, 0, 9), lv: int(m.lv, 0, 100) };
+      const o = { t: 'pres', n: u.nick, x, z, r: rr, u: +num(m.u, -40, 40).toFixed(2), w: +num(m.w, -40, 40).toFixed(2), d: dr ? 1 : 0, q: int(m.q, 0, 9), lv: int(m.lv, 0, 100), k: int(m.k, 0, 9) };
       if (dr) o.h = r.car.h;
       for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(o); }
       break;
