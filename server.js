@@ -9,6 +9,12 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'users.json');
 const MAX_USERS = +process.env.MAX_USERS || 5000;
 const NICK = /^[A-Za-z0-9_]{3,12}$/, MAXMSG = 8192, MAXROOM = 4, SESSION_MS = 30 * 864e5;
+const LOOK_MAX = { skin: 8, hair: 5, hc: 8, glasses: 4, must: 3, beard: 4, fc: 8 };
+function cleanLook(l) {
+  const o = {}; l = l && typeof l === 'object' ? l : {};
+  for (const k in LOOK_MAX) { const v = Math.floor(+l[k]); o[k] = v >= 0 && v < LOOK_MAX[k] ? v : (k === 'skin' ? 2 : 0); }
+  return o;
+}
 const MISSIONS = ['roubo', 'homicídio', 'tráfico de drogas', 'banco', 'sequestro'];
 
 // ---------- Armazenamento ----------
@@ -95,6 +101,7 @@ const now = () => Date.now();
 const num = (v, a, b) => { v = +v; return Number.isFinite(v) ? Math.max(a, Math.min(b, v)) : 0; };
 const int = (v, a, b) => Math.floor(num(v, a, b));
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
+const cleanCar = o => (!o || typeof o !== 'object') ? null : { x: +num(o.x, -2000, 2000).toFixed(2), z: +num(o.z, -2000, 2000).toFixed(2), r: +num(o.r, -10, 10).toFixed(2) };
 const hashPw = async (p, salt) => (await scrypt(p, salt, 64)).toString('hex');
 const safeEq = (a, b) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 function hits(map, key, windowMs, max) {
@@ -260,8 +267,10 @@ async function doAuth(c, m) {
 
 // ---------- Salas ----------
 function roomState(r) {
-  const members = r.members.map(k => db.users[k].nick);
-  for (const k of r.members) { const c = online.get(k); if (c) c.send({ t: 'room', code: r.host, members }); }
+  const members = r.members.map(k => db.users[k].nick), looks = {};
+  for (const k of r.members) { const lk = db.users[k].save && db.users[k].save.look; if (lk) looks[db.users[k].nick] = lk; }
+  const drv = r.driver && db.users[r.driver] ? db.users[r.driver].nick : '';
+  for (const k of r.members) { const c = online.get(k); if (c) c.send({ t: 'room', code: r.host, members, looks, drv, car: r.car || null }); }
 }
 function leaveRoom(c) {
   const me = c.user, r = rooms.get(c.room);
@@ -271,6 +280,7 @@ function leaveRoom(c) {
     rooms.delete(me);
     for (const k of r.members) { const x = online.get(k); if (x) { x.room = null; x.send({ t: 'room', code: '', members: [] }); } }
   } else {
+    if (r.driver === me) r.driver = null;
     r.members = r.members.filter(k => k !== me);
     c.send({ t: 'room', code: '', members: [] });
     roomState(r);
@@ -281,11 +291,27 @@ function handle(c, m) {
   switch (m.t) {
     case 'save': {
       const sv = { score: int(m.score, -1e9, 1e9), missionN: int(m.missionN, 0, 1e6) };
+      if (u.save.look) sv.look = u.save.look;
       if (sv.score !== u.save.score || sv.missionN !== u.save.missionN) { u.save = sv; touchUser(me); }
       break;
     }
-    case 'wipe':
-      u.save = { score: 0, missionN: 0 }; touchUser(me); break;
+    case 'wipe': {
+      const lk = u.save.look; u.save = { score: 0, missionN: 0 }; if (lk) u.save.look = lk; touchUser(me); break;
+    }
+    case 'look': {
+      u.save.look = cleanLook(m.look); touchUser(me);
+      const r = rooms.get(c.room); if (r) roomState(r);
+      break;
+    }
+    case 'drive': { // só um jogador por vez dirige a viatura da sala
+      const r = rooms.get(c.room);
+      if (!r) { if (m.on) c.send({ t: 'drv', ok: true }); break; }
+      if (m.on) {
+        if (r.driver && r.driver !== me && online.has(r.driver)) { c.send({ t: 'drv', ok: false }); info(db.users[r.driver].nick + ' já está dirigindo a viatura'); break; }
+        r.driver = me; c.send({ t: 'drv', ok: true }); roomState(r);
+      } else if (r.driver === me) { r.driver = null; roomState(r); }
+      break;
+    }
     case 'logout':
       if (typeof m.token === 'string') dropSession(sha(m.token.slice(0, 100)));
       dropUser(c); break;
@@ -308,7 +334,7 @@ function handle(c, m) {
       const tu = db.users[tk]; if (!tu) return info('Esse nick não existe');
       const tc = online.get(tk); if (!tc) return info(tu.nick + ' está offline');
       let r = rooms.get(c.room);
-      if (!r) { r = { hostKey: me, host: u.nick, members: [me] }; rooms.set(me, r); c.room = me; }
+      if (!r) { r = { hostKey: me, host: u.nick, members: [me], driver: null, car: cleanCar(m.car) }; rooms.set(me, r); c.room = me; }
       if (r.members.includes(tk)) return info(tu.nick + ' já está na sala');
       if (r.members.length >= MAXROOM) return info('Sala cheia (4/4)');
       invites.set(tk, { host: r.hostKey, t: now() });
@@ -328,9 +354,13 @@ function handle(c, m) {
     }
     case 'leave': leaveRoom(c); break;
     case 'pres': {
-      const r = rooms.get(c.room); if (!r || r.members.length < 2) return;
-      const t = now(); if (t - c.lp < 50) return; c.lp = t;
-      const o = { t: 'pres', n: u.nick, x: +num(m.x, -2000, 2000).toFixed(2), z: +num(m.z, -2000, 2000).toFixed(2), r: +num(m.r, -10, 10).toFixed(2) };
+      const r = rooms.get(c.room); if (!r) return;
+      const t = now(); if (t - c.lp < 40) return; c.lp = t;
+      const x = +num(m.x, -2000, 2000).toFixed(2), z = +num(m.z, -2000, 2000).toFixed(2), rr = +num(m.r, -10, 10).toFixed(2);
+      const dr = r.driver === me && +m.d === 1;
+      if (dr) r.car = { x, z, r: rr };
+      if (r.members.length < 2) return;
+      const o = { t: 'pres', n: u.nick, x, z, r: rr, u: +num(m.u, -40, 40).toFixed(2), w: +num(m.w, -40, 40).toFixed(2), d: dr ? 1 : 0 };
       for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(o); }
       break;
     }
