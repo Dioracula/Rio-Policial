@@ -270,7 +270,8 @@ function roomState(r) {
   const members = r.members.map(k => db.users[k].nick), looks = {};
   for (const k of r.members) { const lk = db.users[k].save && db.users[k].save.look; if (lk) looks[db.users[k].nick] = lk; }
   const drv = r.driver && db.users[r.driver] ? db.users[r.driver].nick : '';
-  for (const k of r.members) { const c = online.get(k); if (c) c.send({ t: 'room', code: r.host, members, looks, drv, car: r.car || null }); }
+  const riders = (r.riders || [null, null, null]).map(k => (k && db.users[k]) ? db.users[k].nick : '');
+  for (const k of r.members) { const c = online.get(k); if (c) c.send({ t: 'room', code: r.host, members, looks, drv, riders, car: r.car || null }); }
 }
 function leaveRoom(c) {
   const me = c.user, r = rooms.get(c.room);
@@ -281,6 +282,7 @@ function leaveRoom(c) {
     for (const k of r.members) { const x = online.get(k); if (x) { x.room = null; x.send({ t: 'room', code: '', members: [] }); } }
   } else {
     if (r.driver === me) r.driver = null;
+    if (r.riders) { const idx = r.riders.indexOf(me); if (idx !== -1) r.riders[idx] = null; }
     r.members = r.members.filter(k => k !== me);
     c.send({ t: 'room', code: '', members: [] });
     roomState(r);
@@ -308,8 +310,41 @@ function handle(c, m) {
       if (!r) { if (m.on) c.send({ t: 'drv', ok: true }); break; }
       if (m.on) {
         if (r.driver && r.driver !== me && online.has(r.driver)) { c.send({ t: 'drv', ok: false }); info(db.users[r.driver].nick + ' já está dirigindo a viatura'); break; }
+        if (r.riders) { const idx = r.riders.indexOf(me); if (idx !== -1) r.riders[idx] = null; }
         r.driver = me; c.send({ t: 'drv', ok: true }); roomState(r);
       } else if (r.driver === me) { r.driver = null; roomState(r); }
+      break;
+    }
+    case 'ride': { // bancos de carona (até 3), só quem não está dirigindo
+      const r = rooms.get(c.room);
+      if (!r) { if (m.on) c.send({ t: 'ride', ok: false, err: 'Sem sala' }); break; }
+      if (!r.riders) r.riders = [null, null, null];
+      if (m.on) {
+        if (r.driver === me) { c.send({ t: 'ride', ok: false, err: 'Você está dirigindo' }); break; }
+        let idx = r.riders.indexOf(me);
+        if (idx === -1) {
+          idx = r.riders.indexOf(null);
+          if (idx === -1) { c.send({ t: 'ride', ok: false, err: 'Viatura cheia (4/4)' }); break; }
+          r.riders[idx] = me;
+        }
+        c.send({ t: 'ride', ok: true, seat: idx + 1 }); roomState(r);
+      } else {
+        const idx = r.riders.indexOf(me);
+        if (idx !== -1) { r.riders[idx] = null; roomState(r); }
+      }
+      break;
+    }
+    case 'clue': { // uma pista achada por um jogador vale para todos na sala
+      const r = rooms.get(c.room); if (!r) return;
+      const i = int(m.i, 0, 50);
+      const out = { t: 'clue', i };
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
+      break;
+    }
+    case 'end': { // conclusão de missão (vitória/derrota) vale para todos na sala
+      const r = rooms.get(c.room); if (!r) return;
+      const out = { t: 'end', text: String(m.text || '').slice(0, 140), pts: int(m.pts, -1000, 1000) };
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
       break;
     }
     case 'logout':
@@ -334,7 +369,7 @@ function handle(c, m) {
       const tu = db.users[tk]; if (!tu) return info('Esse nick não existe');
       const tc = online.get(tk); if (!tc) return info(tu.nick + ' está offline');
       let r = rooms.get(c.room);
-      if (!r) { r = { hostKey: me, host: u.nick, members: [me], driver: null, car: cleanCar(m.car) }; rooms.set(me, r); c.room = me; }
+      if (!r) { r = { hostKey: me, host: u.nick, members: [me], driver: null, riders: [null, null, null], car: cleanCar(m.car) }; rooms.set(me, r); c.room = me; }
       if (r.members.includes(tk)) return info(tu.nick + ' já está na sala');
       if (r.members.length >= MAXROOM) return info('Sala cheia (4/4)');
       invites.set(tk, { host: r.hostKey, t: now() });
