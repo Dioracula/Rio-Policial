@@ -292,8 +292,8 @@ function hurt(d){if(faint||rollEnd>time)return;if(vestOn>=0&&(vests[vestOn]||0)>
  hp-=d}
 let lastFireT=0;
 const kidPause=()=>inside==='kid'||Object.values(remotes).some(r=>r.g.position.x>550&&r.g.position.x<650);
-function setReact(n,f){if(n.react||n.hostage)return;n.react=f||(Math.random()<.5?'flee':'fight');n.revealed=true;n.hold=false;
- if(n.react==='fight'){n.armed=true;n.fireT=Math.min(n.fireT||1,.7);msg('O suspeito sacou uma arma!',1500)}else{if(n.armed){n.armed=false;dropGun(n)}msg('O suspeito está fugindo!',1500)}}
+function setReact(n,f){if(n.react||n.hostage)return;n.react=f||(n.lair?'fight':(n.robber||n.kid)?(Math.random()<.85?'fight':'flee'):(Math.random()<.5?'flee':'fight'));n.revealed=true;n.hold=false;
+ if(n.react==='fight'){n.armed=true;n.fireT=Math.min(n.fireT||1,.7);if(time-(setReact.t||-9)>2){setReact.t=time;msg('O suspeito sacou uma arma!',1500)}}else{if(n.armed){n.armed=false;dropGun(n)}msg('O suspeito está fugindo!',1500)}}
 const resisting=n=>!!(n.armed&&(n.react==='fight'||n.underFire)&&!(n.down>0));
 function drawCompass(){const c=$('comp');if(!c)return;const on=!mDone&&mtype==='invest'&&crime==='roubo'&&roubZ;c.style.display=on?'block':'none';if(!on)return;
  const g=c.getContext('2d'),R=64;g.clearRect(0,0,128,128);g.fillStyle='#0d1117dd';g.beginPath();g.arc(R,R,62,0,7);g.fill();g.strokeStyle='#ffffff66';g.lineWidth=3;g.stroke();
@@ -438,10 +438,13 @@ function spawnNPC(pos,ex){
  model(n);n.mesh.position.set(x,0,z);npcs.push(n);return n}
 {const R0=Math.random;Math.random=seedR(777);for(let i=0;i<130;i++)spawnNPC();Math.random=R0}
 const desc=t=>`Camisa ${t.cor} • ${t.bone?'Boné':'Sem boné'} • ${t.mochila?'Mochila':'Sem mochila'} • ${t.altura}`;
+const PANTN=['azul-marinho','cinza','marrom','preta'],SKINN=['pele muito clara','pele clara','pele média-clara','pele média','pele morena','pele morena-escura','pele escura','pele muito escura'];
+const pantsName=n=>PANTN[Math.max(0,PANTS.indexOf(n.pants))],skinName=n=>SKINN[Math.max(0,Math.min(7,(n.look&&n.look.skin)|0))];
+const descN=n=>desc(n.traits)+((!mDone&&mtype==='invest')?` • Calça ${pantsName(n)} • ${skinName(n)}`:'');
 const same=(a,b)=>a.cor===b.cor&&a.bone===b.bone&&a.mochila===b.mochila&&a.altura===b.altura;
 
 // ---------- Missões e pistas ----------
-let bankHost=[],bankWarn=false,bodyPos=null,puzAvail=[],puzDone={},puzTries={},puzPool=[],puzRev=0,puzYield=1,pzRun=null;
+let bankHost=[],bankWarn=false,bodyPos=null,puzAvail=[],puzDone={},puzTries={},puzPool=[],puzRev=0,puzYield=1,pzRun=null,lairT=-99;
 let score=0,missionN=0,crime='',suspect=null,notes=[],clues=[],mtype='invest',timeLeft=0,phase='',robbers=[],gcar=null,bankBeam=null,mDone=true,hp=100,driving=false,cs=0,ch=0,escT=0,near=null,fireCd=0,cdist=1e9;
 const CRIMES=['roubo','homicídio','tráfico de drogas'];
 const pos=()=>driving?car.g.position:player.position;
@@ -557,7 +560,7 @@ function meleeHit(n){
  if(n.hp<=0)neutralize(n,'arrest');else hud()}
 function enemyFire(n){n.underFire=true;n.revealed=true;if(!n.react)n.react='fight';const p=n.mesh.position,P=pos(),d=Math.hypot(P.x-p.x,P.z-p.z),k=(.8+d*.05)*(1.3-.15*mStars),ox=(Math.random()-.5)*2*k,oz=(Math.random()-.5)*2*k;
  tracer(new THREE.Vector3(p.x,1.5,p.z),new THREE.Vector3(P.x+ox,1.4,P.z+oz),0xff6644);
- if(Math.hypot(ox,oz)<(driving?1.4:(crouch||cov)?.65:.9)){const dm=6+Math.random()*5;if(driving&&carHp>0)carDamage(dm*.8);else if(!(shielded(p.x,p.z)&&Math.random()<.85))hurt(dm)}
+ if(Math.hypot(ox,oz)<(driving?1.4:(aimOn||time-lastFireT<.5)?.95:(crouch||cov)?.65:.9)){const dm=6+Math.random()*5;if(driving&&carHp>0)carDamage(dm*.8);else if(!(Math.random()<coverBlock(p.x,p.z)))hurt(dm)}
  else if(hostageN&&!hostageN.dead&&!mDone&&inside==='kid'&&Math.hypot(hostageN.mesh.position.x-P.x,hostageN.mesh.position.z-P.z)<8&&Math.random()<.04*mStars)neutralize(hostageN,'kill');
  else if(inside==='bank'&&bankHost.length&&!mDone&&Math.random()<.025*mStars){const h=bankHost.find(x=>!x.dead&&!x.saved&&Math.hypot(x.mesh.position.x-P.x,x.mesh.position.z-P.z)<7);if(h)neutralize(h,'kill')}}
 let remoteDriver='',pendingDrive=0,riding=0,riderSeats=['','',''];
@@ -593,11 +596,11 @@ function startMission(o){
 function startInvest(cr,s){
  mtype='invest';const pool=npcs.filter(n=>!n.dead&&!n.arrested);suspect=pick(pool);suspect.isSuspect=true;suspect.armed=s>=2;
  for(const n of pool)if(n!==suspect&&same(n.traits,suspect.traits)){n.traits.bone=!n.traits.bone;model(n)}
- crime=cr;mtotal=4;const t=suspect.traits,home=crime==='homicídio';
+ crime=cr;mtotal=6;const t=suspect.traits,home=crime==='homicídio';
  const txt=[home?`Corpo da vítima: fibras de camisa ${t.cor} sob as unhas — eram do assassino.`:crime==='roubo'?`Vítima do roubo: o ladrão vestia camisa ${t.cor}.`:`Testemunha: viu o suspeito fugir de camisa ${t.cor}.`,`Câmera de segurança: o suspeito ${t.bone?'usava boné':'estava sem nada na cabeça'}.`,
-  `Morador: ele ${t.mochila?'carregava uma mochila':'não carregava mochila'}.`,`Pegadas: pelo tamanho, estatura ${HT[t.altura]}.`];
+  `Morador: ele ${t.mochila?'carregava uma mochila':'não carregava mochila'}.`,`Pegadas: pelo tamanho, estatura ${HT[t.altura]}.`,`Câmera de rua: ele vestia calça ${pantsName(suspect)}.`,`Testemunha: a pessoa tinha ${skinName(suspect)}.`];
  if(cr==='roubo'){
-  const keep=[1,2,3].sort(()=>Math.random()-.5).slice(0,[3,2,1][s-1]).sort();mtotal=2+keep.length;victimTalked=false;victimTxt=txt[0];
+  const keep=[1,2,3,4,5].sort(()=>Math.random()-.5).slice(0,[5,4,3][s-1]).sort();mtotal=2+keep.length;victimTalked=false;victimTxt=txt[0];
   const[vx,vz]=freePos(2);
   victimN=spawnNPC([vx,vz],{victim:true,hold:true,traits:{cor:pick(CK),bone:Math.random()<.5,mochila:Math.random()<.5,altura:pick(HK)}});
   if(same(victimN.traits,t)){victimN.traits.bone=!victimN.traits.bone;model(victimN)}
@@ -651,11 +654,11 @@ function openMenu(){plainMenu();$('mbox').innerHTML='<b style="font-size:16px">�
  offers.map((o,i)=>`<button data-i="${i}"><span style="color:#ffd24a">${'★'.repeat(o.s)}${'☆'.repeat(3-o.s)}</span> ${TN[o.t]}<br><small>${['Fácil','Armados','Muito perigoso'][o.s-1]} • recompensa ×${o.s}</small></button>`).join('')+'<button data-i="x" style="background:#444;text-align:center">Fechar</button>';$('menu').style.display='flex';menuT=performance.now()}
 function takeMission(i){const o=offers[i];$('menu').style.display='none';toWorld(HQD.x,-22);const sd=Math.floor(Math.random()*1e9);startSeeded(o,sd);if(roomCode)send({t:'mis',o,sd})}
 function startKid(s){
- mtype='kid';crime='sequestro';mtotal=6;timeLeft=360-s*40;phase='search';
+ mtype='kid';crime='sequestro';mtotal=8;timeLeft=360-s*40;phase='search';
  const alt=h=>h<14?'baixo':h<24?'médio':'alto',sec=o=>`${o.z<0?'norte':'sul'}-${o.x<0?'oeste':'leste'}`;let b;
  for(let k=0;k<150;k++){b=pick(BLD);if(BLD.filter(o=>o.cor===b.cor&&alt(o.h)===alt(b.h)&&sec(o)===sec(b)&&o.toldo===b.toldo&&o.ant===b.ant).length===1)break}
  kb=b;extBack={x:b.x,z:b.z+b.d/2+3};
- spawnClues([`Família da vítima: o carro dos sequestradores foi visto perto de um prédio ${b.cor}.`,`Câmera de rua: o prédio tem altura ${alt(b.h)}.`,`Informante: fica na região ${sec(b)} em relação à praça central.`,`Testemunha: o prédio tem um toldo ${b.toldo} na porta.`,`Vizinho: ${b.ant?'há uma antena no topo':'não há antena no topo'} do prédio.`,`Taxista: ele fica mais perto do ${LMS.reduce((a,l)=>Math.hypot(l.x-b.x,l.z-b.z)<Math.hypot(a.x-b.x,a.z-b.z)?l:a).n}.`],0);
+ spawnClues([`Família da vítima: o carro dos sequestradores foi visto perto de um prédio ${b.cor}.`,`Câmera de rua: o prédio tem altura ${alt(b.h)}.`,`Informante: fica na região ${sec(b)} em relação à praça central.`,`Testemunha: o prédio tem um toldo ${b.toldo} na porta.`,`Vizinho: ${b.ant?'há uma antena no topo':'não há antena no topo'} do prédio.`,`Taxista: ele fica mais perto do ${LMS.reduce((a,l)=>Math.hypot(l.x-b.x,l.z-b.z)<Math.hypot(a.x-b.x,a.z-b.z)?l:a).n}.`,`Rádio da polícia: o prédio fica a cerca de ${Math.round(Math.hypot(b.x,b.z)/20)*20} m da praça central.`,`Morador: o prédio é mais ${b.w>=b.d?'largo do que fundo':'fundo do que largo'}.`],0);
  const L=kidL,C=KI;room(L,C,44,40,mat(0x4a4540),true);ring(L,C.x,C.z+17,0x3cd070);
  [[-16.5,6,11,.6],[2,6,14,.6],[18.5,6,7,.6],[-18,-8,8,.6],[-2,-8,12,.6],[16,-8,12,.6],[2,-14,.6,12]].forEach(([x,z,w,d])=>wl(L,C.x+x,C.z+z,w,d,true));
  [[-8,12],[8,14],[-14,-1],[12,0]].forEach(([x,z])=>wl(L,C.x+x,C.z+z,2,2,true,1.2));
@@ -700,7 +703,7 @@ function ctxUpdate(){const P=player.position;let a=null;
  $('xh').style.display=!aimOn||$('menu').style.display==='flex'?'none':'block';if(faint)a=null;act=a;const b=$('ab');b.style.display=a?'block':'none';if(a)b.textContent=a.l}
 
 // ---------- Controles ----------
-const keys={};addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e')resolve();if(e.key===' ')fire();if(e.key.toLowerCase()==='f')toggleCar();if(e.key.toLowerCase()==='g'&&act)act.f();if(e.key.toLowerCase()==='q')cycleWeapon();if(e.key.toLowerCase()==='c')toggleCover();if(e.key.toLowerCase()==='v')startRoll()});
+const keys={};addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e')resolve();if(e.key===' ')fire();if(e.key.toLowerCase()==='f')toggleCar();if(e.key.toLowerCase()==='g'&&act)act.f();if(e.key.toLowerCase()==='q')cycleWeapon();if(e.key.toLowerCase()==='c')toggleCover();if(e.key.toLowerCase()==='v')startRoll();if(e.key.toLowerCase()==='x')swapShoulder()});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 let joy={x:0,y:0},jid=null,jcx=0,jcy=0;const J=$('joy'),S=$('stick'),JZ=$('jz');
 const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -716,7 +719,7 @@ JZ.addEventListener('pointermove',e=>{if(e.pointerId!==jid)return;
 const jend=e=>{if(e.pointerId!==jid)return;jid=null;joy={x:0,y:0};S.style.left=S.style.top='35px';J.classList.remove('on');J.style.left=J.style.top=J.style.bottom=''};
 ['pointerup','pointercancel'].forEach(k=>JZ.addEventListener(k,jend));
 // câmera fluida: arrasta com qualquer dedo livre; suavização exponencial
-let aimOn=false,editApp=false,edSave={y:0,p:.45},edZoom=false,fc=0;
+let shSide=1,shO=1;let aimOn=false,editApp=false,edSave={y:0,p:.45},edZoom=false,fc=0;
 let camYaw=0,camPitch=.45,yawT=0,pitchT=.45,dist=9,camPos=new THREE.Vector3(0,6,-17),did=null,lx=0,ly=0;const cv=$('c');
 const ZMIN=3,ZMAX=20,cpt=new Map();let pd0=0,faint=null;
 cv.addEventListener('pointerdown',e=>{cpt.set(e.pointerId,[e.clientX,e.clientY]);if(cpt.size===2){const[a,b]=[...cpt.values()];pd0=Math.hypot(a[0]-b[0],a[1]-b[1])}if(did===null){did=e.pointerId;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(e.pointerId)}else{try{cv.setPointerCapture(e.pointerId)}catch(_){}}});
@@ -730,6 +733,7 @@ cv.addEventListener('wheel',e=>{dist=Math.min(ZMAX,Math.max(ZMIN,dist+e.deltaY*.
 // Câmera: colisão com paredes (não atravessa; ao entrar em prédios o personagem aparece), mira sobre o ombro com zoom
 const _cv=new THREE.Vector3(),_cd=new THREE.Vector3(),_cs=new THREE.Vector3();let camD=9;
 function camUpdate(dt,P){
+ {const ts=(cov&&aimOn&&cov.s)?cov.s:shSide;shO+=(ts-shO)*Math.min(1,dt*9)}
  const kk=1-Math.exp(-(aimOn?32:14)*dt);
  camYaw+=(yawT-camYaw)*kk;camPitch+=(pitchT-camPitch)*kk;
  if(!aimOn&&!editApp)pitchT=Math.max(.08,Math.min(1.2,pitchT));
@@ -738,7 +742,7 @@ function camUpdate(dt,P){
  let dd=dist,py=1.8,ly=1.6,ox=0,tf=65;
  if(editApp){dd=edZoom?1.8:3.6;py=ly=edZoom?1.95:1.45;ox=edZoom?.55:1.05;tf=48}
  else if(aimOn&&riding){dd=.12;py=ly=1.6;ox=0;tf=62}
- else if(aimOn){dd=3.1;py=ly=1.65;ox=.85;tf=50}
+ else if(aimOn){dd=3.1;py=ly=1.65;ox=.85*shO;tf=50}
  const tx=P.x-cy*ox,tz=P.z+sy*ox;
  _cs.set(tx-_cd.x*dd,py-_cd.y*dd,tz-_cd.z*dd);
  camPos.lerp(_cs,1-Math.exp(-(aimOn?28:editApp?10:12)*dt));
@@ -757,8 +761,16 @@ function tryCover(rad=1.7){const p=player.position;let b=null,bd=rad;for(const q
  if(!b)return false;const ox=p.x-b.x,oz=p.z-b.z,rx=Math.abs(ox)-b.w/2,rz=Math.abs(oz)-b.d/2;cov={c:b,nx:rx>rz?(Math.sign(ox)||1):0,nz:rx>rz?0:(Math.sign(oz)||1),low:b.h!=null&&b.h<1.5};leanOff=0;return true}
 function toggleCover(){if(faint||driving||riding||editApp||rollEnd>time)return;if(cov){cov=null;crouch=false}else if(crouch)crouch=false;else{crouch=true;if(tryCover())msg('Em cobertura: mire para espiar, atire sem mirar para tiro cego',2200);else msg('Agachado — chegue perto de uma parede, carro ou lixeira',1800)}}
 function startRoll(){if(faint||driving||riding||editApp||time<rollCd||rollEnd>time)return;const l=Math.hypot(lastMX,lastMZ)||1;rollDX=lastMX/l;rollDZ=lastMZ/l;rollEnd=time+.55;rollCd=time+1.3;cov=null;crouch=false;aim=false;$('aimb').style.background='#6e7681'}
-const shielded=(sx,sz)=>{if(!cov||driving||riding)return false;const P=player.position,dx=sx-P.x,dz=sz-P.z,l=Math.hypot(dx,dz)||1;return(-cov.nx*dx-cov.nz*dz)/l>.25&&!(cov.low&&aimOn)&&!(!cov.low&&cov.home)};
-{const mk=(id,tx,bg,f)=>{const b=document.createElement('button');b.className='btn';b.id=id;b.textContent=tx;b.style.background=bg;b.addEventListener('pointerdown',e=>{e.preventDefault();f()});$('acts').appendChild(b)};mk('rollb','ROLAR','#2f6f9f',startRoll);mk('covb','COBERT.','#7a5a2a',toggleCover)}
+// Cobertura: devolve a chance (0..1) de a parede absorver um tiro vindo de (sx,sz). Ao espiar/atirar o jogador fica exposto.
+const coverBlock=(sx,sz)=>{if(!cov||driving||riding)return 0;const P=player.position,dx=sx-P.x,dz=sz-P.z,l=Math.hypot(dx,dz)||1;
+ if((-cov.nx*dx-cov.nz*dz)/l<=.25)return 0; // tiro vindo do lado de dentro/flanco: sem proteção
+ let pr=.85;
+ if(aimOn){if(cov.low)pr=.12;else if(cov.home){const d=Math.hypot(P.x-cov.home.x,P.z-cov.home.z);pr=.85*Math.max(0,1-d/.6)}else pr=.5}
+ else if(time-lastFireT<.5)pr=.5; // tiro cego: a mão/braço aparece
+ if(aimOn&&time-lastFireT<.6)pr=Math.min(pr,.1);
+ return aimOn||time-lastFireT<.5?Math.max(.03,pr):pr};
+function swapShoulder(){if(faint||driving||riding||editApp)return;shSide=-shSide;if(cov&&aimOn)cov.man=shSide;msg(shSide>0?'Ombro direito':'Ombro esquerdo',700)}
+{const mk=(id,tx,bg,f)=>{const b=document.createElement('button');b.className='btn';b.id=id;b.textContent=tx;b.style.background=bg;b.addEventListener('pointerdown',e=>{e.preventDefault();f()});$('acts').appendChild(b)};mk('rollb','ROLAR','#2f6f9f',startRoll);mk('covb','COBERT.','#7a5a2a',toggleCover);mk('shb','⇄','#8957e5',swapShoulder);{const q=$('shb');q.style.width=q.style.height='38px';q.style.fontSize='17px';q.title='Trocar ombro'}}
 const TRF=[],LANE=[[0,3],[-3,0],[0,-3],[3,0]],TANG=[Math.PI/2,0,-Math.PI/2,Math.PI],TV=[[1,0],[0,1],[-1,0],[0,-1]];
 function mkTraffic(){const cols=[0xc0392b,0x2c6fbb,0xe0b400,0x2e7d4f,0x777777,0xeeeeee,0x6a4a7a,0xd9772b];
  for(let i=0;i<16;i++){const c=buildCar(pick(cols),false),hz=Math.random()<.5,rc=(Math.floor(Math.random()*14)-7)*32+16,a=(Math.random()-.5)*400,s=Math.random()<.5?1:-1,dir=hz?(s>0?0:2):(s>0?1:3),L=LANE[dir];
@@ -798,7 +810,7 @@ mkTraffic();
 // Agachar: coxas à frente e joelhos dobrados, corpo desce e recua. Rolar: encolhe, dobra pernas/braços e gira em torno do centro do corpo (sem afundar no chão)
 function bodyPose(){const P=pl.parts,rolling=rollEnd>time;let rx=0,sc=1,oy=-.41*crC,oz=-.447*crC,tk=0;
  if(rolling){const u=1-(rollEnd-time)/.55;tk=Math.max(0,Math.min(1,u/.18,(1-u)/.18));rx=Math.max(0,Math.min(1,(u-.18)/.64))*Math.PI*2;sc=1;oy=(1-Math.cos(rx))+.25*tk;oz=-Math.sin(rx)}
- if(faint&&!faint.onboard){rx=-Math.PI/2;oy=0;oz=0;player.position.y=.3}player.rotation.x=rx;player.scale.setScalar(sc);vOff.y=oy;vOff.z=oz;
+ if(faint&&!faint.onboard){rx=-Math.PI/2;oy=0;oz=0;player.position.y=.3}player.rotation.x=rx;player.scale.set(sc*(aimOn&&((cov&&cov.s)||shSide)<0?-1:1),sc,sc);vOff.y=oy;vOff.z=oz;
  const f=Math.max(crC,tk);for(const L of[P.legL,P.legR]){L.rotation.x=(rolling?-1.6:-1.45)*f+L.rotation.x*(1-f);L.knee.rotation.x=(rolling?2.2:1.45)*f}
  if(crC>.2&&plMove&&!rolling){const s=Math.sin(ph)*.5*crC;P.legL.rotation.x+=s;P.legR.rotation.x-=s;P.legL.knee.rotation.x+=Math.max(0,-s)*1.2;P.legR.knee.rotation.x+=Math.max(0,s)*1.2}
  P.armL.rotation.x=(rolling?-2:-.7)*f+P.armL.rotation.x*(1-f);if(rolling)P.armR.rotation.x=-2*tk+P.armR.rotation.x*(1-tk)}
@@ -851,8 +863,12 @@ function loop(){
     if(!cov.home){const qx=p.x-cov.nx*1.6*dt,qz=p.z-cov.nz*1.6*dt;if(!collides(qx,qz,.6)){p.x=qx;p.z=qz}}
     if(!aimOn){let d=Math.atan2(-cov.nx,-cov.nz)-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*12)}
     const tx=-cov.nz,tz=cov.nx,b=cov.c;
+    // lado da mira: perto da ponta da parede = lado dessa ponta; no meio = ombro escolhido (ou troca manual)
+    {const tl=tx?b.w:b.d,off=(p.x-b.x)*tx+(p.z-b.z)*tz,rs=Math.sign(-Math.cos(camYaw)*tx+Math.sin(camYaw)*tz)||1;
+     if(!aimOn)cov.man=0;
+     cov.s=cov.man||(Math.abs(off)>tl/2-2.2?(Math.sign(off)||1)*rs:shSide);cov.sg=cov.s*rs}
     if(!cov.low&&aimOn){ // espiar pela quina: desliza até a ponta da parede; volta ao soltar a mira
-     if(!cov.home){cov.home={x:p.x,z:p.z};cov.sg=Math.sign(-Math.cos(camYaw)*tx+Math.sin(camYaw)*tz)||1}
+     if(!cov.home)cov.home={x:p.x,z:p.z}
      const dS=cov.sg*(tx||tz),goal=(tx?b.x:b.z)+dS*((tx?b.w:b.d)/2+.9),cur=tx?p.x:p.z,st=Math.max(-7*dt,Math.min(7*dt,goal-cur)),nx2=tx?p.x+st:p.x,nz2=tx?p.z:p.z+st;
      if(!collides(nx2,nz2,.5)){p.x=nx2;p.z=nz2}}
     else if(cov.home){const hx=cov.home.x-p.x,hz=cov.home.z-p.z,dd=Math.hypot(hx,hz);
@@ -872,7 +888,7 @@ function loop(){
     if(driving&&Math.hypot(car.g.position.x-gcar.g.position.x,car.g.position.z-gcar.g.position.z)<4.5){gcar.go=false;endMission(true,'Fuga bloqueada! Criminosos presos! +25 pontos',25)}
     else if(gcar.exit&&(Math.abs(gcar.g.position.x)>B-6||Math.abs(gcar.g.position.z)>B-6))endMission(false,'Os criminosos fugiram da cidade! Missão perdida')}}}
  if(!mDone&&mtype==='kid'&&hostageN){if(!kidPause())timeLeft-=dt;if(timeLeft<=0)neutralize(hostageN,'kill')}
- near=null;let nd=3.4;
+ near=null;let nd=3.4;const galert=npcs.some(r=>(r.robber||r.kid)&&r.react==='fight'&&!r.dead&&!r.arrested);
  for(const n of npcs){if(n.custody){const p=n.mesh.position,own=!n.remoteBy,rr=own?null:remotes[n.remoteBy];if(!own&&!rr){walk(n.parts,n.ph,false);continue}
   const T=own?P:rr.g.position,inCar=own?driving:rr.drv,dx=T.x-p.x,dz=T.z-p.z,dd=Math.hypot(dx,dz);let mv=false;n.inCar=inCar;
   if(inCar){p.x=T.x;p.z=T.z;n.mesh.visible=false}else{n.mesh.visible=true;if(dd>2.5){const nx=p.x+dx/dd*5.5*dt,nz=p.z+dz/dd*5.5*dt;if(!collides(nx,p.z,.5)){p.x=nx;mv=true}if(!collides(p.x,nz,.5)){p.z=nz;mv=true}n.mesh.rotation.y=Math.atan2(dx,dz)}}
@@ -883,12 +899,15 @@ function loop(){
   let sp=1.4;const dp=Math.hypot(p.x-P.x,p.z-P.z),esc=n.robber&&phase==='escape'&&!mDone;
   if(dp<40){if(!n.lk)lookNPC(n)}else if(dp>70&&n.lk)stripLook(n);
   const crim=n.robber||n.kid||n.isSuspect;
-  if(crim&&!esc){if(!n.react&&dp<9)setReact(n);if(n.react&&time-lastFireT<.7&&dp<45&&!(n.dodge>time)){n.dodge=time+.7;n.dodgeDir=Math.random()<.5?1:-1}}
+  if(crim&&!esc){if(!n.react&&dp<9)setReact(n);
+   if(!n.react&&(n.robber||n.kid)&&dp<45&&(time-lastFireT<1.2||(galert&&dp<30)||(n.lair&&inside==='drug'&&time-lairT>1.2+(n.ph%1.6))))setReact(n,'fight'); // ouvem tiros, colega em combate ou invasão
+   if(n.react&&time-lastFireT<.7&&dp<45&&!(n.dodge>time)){n.dodge=time+.7;n.dodgeDir=Math.random()<.5?1:-1}}
   if(n.down>0){n.down-=dt;n.mesh.position.y=n.down>0?-.6:0;if(dp<nd&&!driving&&!riding&&!n.cop){nd=dp;near=n}continue}
   const cvSp=(crim&&n.armed&&!esc&&dp<30&&(n.react==='fight'||n.underFire))?coverAI(n,p,P,dp,dt):-1;if(cvSp<0){if(n.sy0!=null&&n.mesh.scale.y!==n.sy0)n.mesh.scale.y=n.sy0;if(n.cs){n.cs=null;n.cv=null}}
   if(cvSp>=0)sp=cvSp;
-  else if(n.armed&&!esc&&dp<(n.robber||n.kid?26:15)&&!blocked(p.x,p.z,P.x,P.z)){sp=0;n.mesh.rotation.y=Math.atan2(P.x-p.x,P.z-p.z);if(n.react&&n.dodge>time){const l=dp||1;sp=2.8;n.tgt.set(p.x-(P.z-p.z)/l*n.dodgeDir*4,0,p.z+(P.x-p.x)/l*n.dodgeDir*4);n.timer=.5}if(n.grab){n.grabT-=dt;const c=n.grab;if(c.dead)n.grab=null;else{c.mesh.position.set(p.x+Math.sin(n.mesh.rotation.y)*.9,0,p.z+Math.cos(n.mesh.rotation.y)*.9);if(n.grabT<=0)killCiv(n)}}else{if(!n.grabTried){n.grabTried=true;grab(n)}n.fireT-=dt;if(n.fireT<=0){n.fireT=1.2+Math.random()*.6;enemyFire(n)}}}
+  else if(n.armed&&!esc&&dp<(n.robber||n.kid?26:15)&&!blocked(p.x,p.z,P.x,P.z)){sp=0;n.mesh.rotation.y=Math.atan2(P.x-p.x,P.z-p.z);if(n.react&&n.dodge>time){const l=dp||1;sp=2.8;n.tgt.set(p.x-(P.z-p.z)/l*n.dodgeDir*4,0,p.z+(P.x-p.x)/l*n.dodgeDir*4);n.timer=.5}if(n.grab){n.grabT-=dt;const c=n.grab;if(c.dead)n.grab=null;else{c.mesh.position.set(p.x+Math.sin(n.mesh.rotation.y)*.9,0,p.z+Math.cos(n.mesh.rotation.y)*.9);if(n.grabT<=0)killCiv(n)}}else{if(!n.grabTried){n.grabTried=true;grab(n)}n.fireT-=dt;if(n.fireT<=0){n.fireT=(1.2+Math.random()*.6)*(n.lair?.75:1)*(1.15-.1*mStars);enemyFire(n)}}}
   else if(esc){n.tgt.copy(gcar.g.position);n.timer=9;sp=4.5;if(Math.hypot(p.x-gcar.g.position.x,p.z-gcar.g.position.z)<2.8){n.boarded=true;n.mesh.visible=false;continue}}
+  else if((n.robber||n.kid)&&n.react==='fight'&&n.armed&&dp<48&&!n.grab&&!n.hostageOf){sp=n.lair?4.4:3.8;n.tgt.set(P.x,0,P.z);n.timer=.35} // avançam até ter linha de tiro
   else if(n.hold)sp=0;
   else if(crim&&n.react==='flee'&&dp<30){sp=5.2;const l=dp||1,zz=Math.sin(time*2.5+n.ph)*4+(n.dodge>time?n.dodgeDir*3:0);n.tgt.set(p.x+(p.x-P.x)/l*10-(P.z-p.z)/l*zz,0,p.z+(p.z-P.z)/l*10+(P.x-p.x)/l*zz);n.timer=.3}
   n.timer-=dt;if(n.timer<=0){n.tgt.set(p.x+(Math.random()-.5)*30,0,p.z+(Math.random()-.5)*30);n.timer=3+Math.random()*4}
@@ -898,7 +917,7 @@ function loop(){
    if(!mv)n.timer=0;else n.mesh.rotation.y=Math.atan2(dx,dz)}
   n.ph+=dt*sp*5;walk(n.parts,n.ph,mv);
   if(dp<nd&&!driving&&!riding&&!n.cop){nd=dp;near=n}}
- const pr=$('prompt');if(near){pr.style.display='block';pr.textContent=(near.victim&&!victimTalked)?'Vítima do assalto • toque em FALAR':near.bh?'Refém • toque em PRENDER para libertar':desc(near.traits)}else pr.style.display='none';
+ const pr=$('prompt');if(near){pr.style.display='block';pr.textContent=(near.victim&&!victimTalked)?'Vítima do assalto • toque em FALAR':near.bh?'Refém • toque em PRENDER para libertar':descN(near)}else pr.style.display='none';
  let cd=1e9;
  for(const c of clues){c.d.rotation.y+=dt*2;c.d.position.y=2.2+Math.sin(time*3)*.3;if(c.got||c.hidden)continue;
   const d=Math.hypot(c.m.position.x-P.x,c.m.position.z-P.z);
@@ -1317,7 +1336,7 @@ const BI={x:900,z:300},DI={x:1200,z:300};
 const INT={hq:{c:HQI,W:30,D:24,e:9,m:'Central de Polícia'},kid:{c:KI,W:44,D:40,e:17,m:'Você entrou no prédio! Encontre o refém!'},
  bank:{c:BI,W:44,D:36,e:15,m:'Você invadiu o banco! Salve os reféns e neutralize os bandidos!'},drug:{c:DI,W:46,D:38,e:16,m:'Você invadiu o esconderijo! Prenda ou neutralize todos!'}};
 const isRaid=()=>inside==='kid'||inside==='bank'||inside==='drug';
-function enterInt(t){if(driving)return;inside=t;const I=INT[t],c=I.c;player.position.set(c.x,0,c.z+I.e);
+function enterInt(t){if(driving)return;inside=t;if(t==='drug')lairT=time;const I=INT[t],c=I.c;player.position.set(c.x,0,c.z+I.e);
  ZB={x0:c.x-I.W/2+1,x1:c.x+I.W/2-1,z0:c.z-I.D/2+1,z1:c.z+I.D/2-1};yawT=camYaw=Math.PI;camPos.set(player.position.x,6,player.position.z+9);msg(I.m,2500)}
 function endKid(){if(isRaid()&&extBack)toWorld(extBack.x,extBack.z);kidL.forEach(o=>scene.remove(o));kidL=[];for(let i=colliders.length-1;i>=0;i--)if(colliders[i].k)colliders.splice(i,1)}
 const allDown=()=>!Object.values(remotes).some(r=>!r.fnt&&!r.stale);
@@ -1365,41 +1384,44 @@ function startLair(s){
  [[-14.5,-12,15,.6],[14.5,-12,15,.6]].forEach(([x,z,w,d])=>wl(L,C.x+x,C.z+z,w,d,true));wl(L,C.x,C.z-16,.6,6,true);
  const dr=new THREE.Mesh(new THREE.BoxGeometry(3,.6,3),mat(0xe8e8e8));dr.position.set(C.x,.5,C.z-16);scene.add(dr);L.push(dr);
  const sp=[[-12,0],[0,0],[12,0],[-12,-9],[12,-9],[-6,-15],[6,-15],[0,-9]].sort(()=>Math.random()-.5),n=[3,5,8][s-1];
- for(let i=0;i<n;i++)robbers.push(putAt(C,sp[i],crimOpt(i,s>1||i<2,{lair:true,traits:{cor:pick(CK),bone:Math.random()<.5,mochila:Math.random()<.5,altura:pick(HK)}})));
+ for(let i=0;i<n;i++)robbers.push(putAt(C,sp[i],crimOpt(i,true,{lair:true,traits:{cor:pick(CK),bone:Math.random()<.5,mochila:Math.random()<.5,altura:pick(HK)}})));
  if(s>=2)robbers.push(spawnNPC([b.x+3,b.z+b.d/2+2],crimOpt(n,true,{lair:true})));
  bankBeam=new THREE.Mesh(new THREE.CylinderGeometry(.6,.6,60,10),new THREE.MeshBasicMaterial({color:0xff3333,transparent:true,opacity:.3}));bankBeam.position.set(b.x,30,b.z);scene.add(bankBeam);
  msg('Esconderijo de drogas! Siga o GPS, invada e prenda ou neutralize todos.',3500)}
 // --- Homicídio: puzzles no corpo ---
 const PER_T=[2,5,9],perLv=()=>PER_T.filter(x=>per>=x).length;
 const puzLeft=()=>puzAvail.filter(t=>!puzDone[t]).length;
-const PZN={lupa:'🔎 Lupa — vestígios no corpo',dna:'🧬 DNA — material na arma do crime',dig:'🖐 Impressões digitais — objeto da cena'};
+const PZN={lupa:'🔎 Lupa — vestígios no corpo',dna:'🧬 DNA — material na arma do crime',dig:'🖐 Impressões digitais — objeto da cena',cel:'📱 Celular da vítima — padrão de desbloqueio',foto:'🧩 Foto rasgada — remonte a imagem',tox:'💉 Toxicologia — dose exata',cam:'📹 Câmera de segurança — ache as diferenças'};
+const pzType=id=>String(id).replace(/\d+$/,'');
 function startHomicide(s){const t=suspect.traits;
- puzPool=[`Lupa nas fibras: o assassino vestia camisa ${t.cor}.`,`Fio de cabelo e suor: ele ${t.bone?'usava boné':'estava sem nada na cabeça'}.`,`Marca de alça no chão: ele ${t.mochila?'carregava uma mochila':'não levava mochila'}.`,`Passada e pegadas: estatura ${HT[t.altura]}.`].sort(()=>Math.random()-.5);
- puzAvail=['lupa','dna','dig'].sort(()=>Math.random()-.5).slice(0,[3,3,2][s-1]);puzDone={};puzTries={};puzRev=0;puzYield=[2,1,1][s-1];
- mtotal=Math.min(4,puzYield*puzAvail.length);spawnClues([puzPool[0]],1);clues[0].puz=true;bodyPos={x:clues[0].m.position.x,z:clues[0].m.position.z}}
+ puzPool=[`Lupa nas fibras: o assassino vestia camisa ${t.cor}.`,`Fio de cabelo e suor: ele ${t.bone?'usava boné':'estava sem nada na cabeça'}.`,`Marca de alça no chão: ele ${t.mochila?'carregava uma mochila':'não levava mochila'}.`,`Passada e pegadas: estatura ${HT[t.altura]}.`,`Fibras da calça: o assassino vestia calça ${pantsName(suspect)}.`,`Pele sob as unhas da vítima: ${skinName(suspect)}.`].sort(()=>Math.random()-.5);
+ // quanto mais difícil, mais puzzles (3/5/7) e menos pistas no total (6/5/4); a pista final só vem no último puzzle
+ const N=[3,5,7][s-1],ty=['lupa','dna','dig','cel','foto','tox','cam'].sort(()=>Math.random()-.5);
+ puzAvail=ty.slice(0,N).map((t,k)=>t+k);puzDone={};puzTries={};puzRev=0;puzYield=0;
+ mtotal=[6,5,4][s-1];spawnClues([puzPool[0]],1);clues[0].puz=true;bodyPos={x:clues[0].m.position.x,z:clues[0].m.position.z}}
 function openPuzMenu(){plainMenu();curMenu='puz';const lv=perLv();
- let h=`<b style="font-size:16px">🧪 Cena do crime</b><div style="font-size:12px;margin:4px 0">🔍 Perícia nível ${lv}/3 • ${per} pts • Pistas: ${notes.length}/${mtotal}</div><div style="font-size:11px;color:#9fb0c3">Dificuldade ${'★'.repeat(mStars)}: cada análise bem-sucedida revela ${puzYield} pista${puzYield>1?'s':''}.</div>`;
- puzAvail.forEach(t=>{h+=`<div class="srow"><div class="si"><b>${PZN[t]}</b><br><small>${puzDone[t]?'✔ Concluída':'Pendente'}</small></div>${puzDone[t]?'':`<button class="ok" data-a="pz_${t}">Analisar</button>`}</div>`});
+ let h=`<b style="font-size:16px">🧪 Cena do crime</b><div style="font-size:12px;margin:4px 0">🔍 Perícia nível ${lv}/3 • ${per} pts • Pistas: ${notes.length}/${mtotal}</div><div style="font-size:11px;color:#9fb0c3">Dificuldade ${'★'.repeat(mStars)}: resolva as ${puzAvail.length} análises para obter as ${mtotal} pistas (${puzAvail.length-puzLeft()}/${puzAvail.length} concluídas).</div>`;
+ puzAvail.forEach((t,i)=>{h+=`<div class="srow"><div class="si"><b>${PZN[pzType(t)]} #${i+1}</b><br><small>${puzDone[t]?'✔ Concluída':'Pendente'}</small></div>${puzDone[t]?'':`<button class="ok" data-a="pz_${t}">Analisar</button>`}</div>`});
  $('mbox').innerHTML=h+'<button data-a="x" style="background:#444;text-align:center;margin-top:10px">Fechar</button>';$('menu').style.display='flex';menuT=performance.now()}
 function pzStart(t){if(!puzAvail.includes(t)||puzDone[t])return;$('menu').style.display='none';pzOpen(t)}
-function pzSuccess(type,mist,tries){puzDone[type]=true;let n=0;
- for(let k=0;k<puzYield&&puzRev<puzPool.length&&notes.length<mtotal;k++){const i=puzRev++;notes.push(puzPool[i]);n++;send({t:'pz',i,u:type})}
+function pzSuccess(type,mist,tries){puzDone[type]=true;let n=0;const dn=puzAvail.filter(x=>puzDone[x]).length,want=Math.floor(mtotal*dn/puzAvail.length);
+ while(puzRev<want&&puzRev<puzPool.length&&notes.length<mtotal){const i=puzRev++;notes.push(puzPool[i]);n++;send({t:'pz',i,u:type})}
  if(!n)send({t:'pz',i:-1,u:type});
- let txt=n?`🔬 Análise concluída! +${n} pista${n>1?'s':''} do assassino.`:'🔬 Análise concluída (já tinha todas as pistas).';
+ let txt=n?`🔬 Análise concluída! +${n} pista${n>1?'s':''} do assassino.`:(puzLeft()?'🔬 Análise concluída, mas sem pista nova ainda. Faltam '+puzLeft()+' análises.':'🔬 Análise concluída (já tinha todas as pistas).');
  if(mist===0&&tries===1){const b=perLv(),g=mStars>=3?2:1;per+=g;txt+=` 🔍 Perícia +${g}`;if(perLv()>b)txt+=` — NÍVEL ${perLv()}! Novas ajudas nos próximos puzzles`}
  msg(txt,3800);if(!puzLeft()||notes.length>=mtotal){const c=clues[0];if(c&&c.puz&&!c.got){c.got=true;scene.remove(c.m)}}
- hud();saveGame(true);if(puzLeft()&&n)setTimeout(openPuzMenu,900)}
+ hud();saveGame(true);if(puzLeft())setTimeout(openPuzMenu,900)}
 {const o=document.createElement('div');o.id='puz';o.style.cssText='position:fixed;inset:0;z-index:22;background:#000e;display:none;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:#fff;touch-action:none';
  o.innerHTML='<div id="pzt" style="font-weight:700;font-size:14px"></div><div id="pzi" style="font-size:12px;color:#ffe9a8"></div><div id="pzb"></div><div style="display:flex;gap:8px"><button class="fb" id="pzh" style="width:auto;padding:0 12px;font-size:13px">💡 Dica</button><button class="fb" id="pzx" style="width:auto;padding:0 12px;font-size:13px">✕ Sair</button></div>';document.body.appendChild(o);
  $('pzx').onclick=()=>{if(pzRun){pzRun.over=true;if(pzRun.cleanup)pzRun.cleanup();pzRun=null}o.style.display='none'};
  $('pzh').onclick=()=>{const r=pzRun;if(r&&r.hintFn&&r.hint>0&&!r.over){r.hint--;r.hintFn();$('pzh').style.display=r.hint?'':'none'}}}
-function pzOpen(type){const s=mStars,L=perLv();puzTries[type]=(puzTries[type]||0)+1;
- pzRun={type,s,L,mist:0,max:[3,2,1][s-1]+(L>=3?1:0),tries:puzTries[type],hint:L>=2?2:L>=1?1:0,over:false,cleanup:null,hintFn:null};
+function pzOpen(id){const type=pzType(id),s=mStars,L=perLv();puzTries[id]=(puzTries[id]||0)+1;
+ pzRun={id,type,s,L,mist:0,max:[3,2,1][s-1]+(L>=3?1:0),tries:puzTries[id],hint:L>=2?2:L>=1?1:0,over:false,cleanup:null,hintFn:null};
  $('puz').style.display='flex';$('pzt').textContent=PZN[type];$('pzh').style.display=pzRun.hint?'':'none';
- const B=$('pzb');B.innerHTML='';({lupa:pzLupa,dna:pzDna,dig:pzDig})[type](B);pzInfo()}
+ const B=$('pzb');B.innerHTML='';({lupa:pzLupa,dna:pzDna,dig:pzDig,cel:pzCel,foto:pzFoto,tox:pzTox,cam:pzCam})[type](B);pzInfo()}
 function pzInfo(){const r=pzRun;if(r)$('pzi').textContent=`Erros: ${r.mist}/${r.max}`+(perLv()?` • 🔍 Perícia ${perLv()}`:'')+(r.L>=1?' • 💡 dicas: '+r.hint:'')}
 function pzEnd(ok){const r=pzRun;if(!r||r.over)return;r.over=true;if(r.cleanup)r.cleanup();
- setTimeout(()=>{$('puz').style.display='none';if(pzRun===r)pzRun=null;if(ok)pzSuccess(r.type,r.mist,r.tries);else{msg('A análise falhou. Tente de novo.',2400);openPuzMenu()}},ok?700:600)}
+ setTimeout(()=>{$('puz').style.display='none';if(pzRun===r)pzRun=null;if(ok)pzSuccess(r.id,r.mist,r.tries);else{msg('A análise falhou. Tente de novo.',2400);openPuzMenu()}},ok?700:600)}
 function pzMist(){const r=pzRun;r.mist++;pzInfo();if(r.mist>r.max){$('pzi').textContent='Prova contaminada! Falhou.';pzEnd(false)}}
 function pzLupa(B){const r=pzRun,S=Math.round(Math.max(180,Math.min(330,Math.min(innerHeight-150,innerWidth*.9)))),k=Math.min(devicePixelRatio||1,2);
  const c=document.createElement('canvas');c.width=c.height=S*k;c.style.cssText=`width:${S}px;height:${S}px;border-radius:10px;border:2px solid #ffffff55;touch-action:none`;B.appendChild(c);
@@ -1446,6 +1468,83 @@ function pzDig(B){const s=pzRun.s,dl=[.35,.2,.12][s-1];
   draw(g,d,w,h){g.fillStyle='#10161c';g.fillRect(0,0,w,h);g.save();g.beginPath();g.ellipse(w/2,h/2,w*.4,h*.46,0,0,7);g.clip();g.fillStyle='#caa77a';g.fillRect(0,0,w,h);g.strokeStyle='#5b3a1e';g.lineWidth=1.2;
    const k=w/150;for(let i=1;i<40;i++){g.beginPath();g.ellipse(w/2+d.cx*w,h/2+d.cy*h,i*d.sp*d.ecc*k,i*d.sp*k,d.rot,0,7);g.stroke()}
    g.fillStyle='#caa77a';d.gp.forEach(q=>{g.beginPath();g.arc(q.x*w,q.y*h,3.2*k,0,7);g.fill()});g.restore()}})}
+
+// ---- Novos puzzles de homicídio ----
+// Celular da vítima: memorize a sequência do padrão de desbloqueio e repita
+function pzCel(B){const r=pzRun,len=[4,5,6][r.s-1],S=Math.round(Math.max(170,Math.min(270,Math.min(innerHeight-210,innerWidth*.8))));
+ const seq=[];let last=-1;for(let i=0;i<len;i++){let k;do k=Math.floor(Math.random()*9);while(k===last);seq.push(k);last=k}
+ const w=document.createElement('div');w.style.cssText=`display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:${S}px;height:${S}px;padding:12px;background:#10161c;border-radius:14px;border:2px solid #ffffff33;box-sizing:content-box`;
+ const cells=[];for(let i=0;i<9;i++){const c=document.createElement('button');c.style.cssText='border-radius:50%;border:2px solid #ffffff44;background:#1b2a38;padding:0;touch-action:manipulation';w.appendChild(c);cells.push(c)}
+ const t=document.createElement('div');t.style.cssText='font-size:12px;text-align:center;color:#9fb0c3;margin-top:4px';
+ let pos=0,showing=true,timers=[];
+ const flash=(i,col,ms)=>{cells[i].style.background=col;timers.push(setTimeout(()=>{cells[i].style.background='#1b2a38'},ms))};
+ const play=()=>{showing=true;pos=0;timers.forEach(clearTimeout);timers=[];t.textContent='Memorize a sequência do desbloqueio…';
+  seq.forEach((k,j)=>timers.push(setTimeout(()=>flash(k,'#ffe14a',420),500+j*700)));
+  timers.push(setTimeout(()=>{showing=false;t.textContent='Agora repita tocando nos pontos na mesma ordem.'},500+len*700))};
+ cells.forEach((c,i)=>c.onclick=()=>{if(r.over||showing)return;
+  if(i===seq[pos]){flash(i,'#3cd070',250);pos++;if(pos>=len)pzEnd(true)}else{flash(i,'#ff5a5a',300);pzMist();if(!r.over)play()}});
+ r.hintFn=()=>play();r.cleanup=()=>timers.forEach(clearTimeout);
+ B.appendChild(w);B.appendChild(t);play()}
+// Foto rasgada: toque em duas peças para trocá-las até remontar a imagem
+function pzFoto(B){const r=pzRun,s=r.s,C=[3,3,4][s-1],R=[2,3,3][s-1],n=C*R,T=Math.round(Math.max(50,Math.min(86,Math.min(innerWidth*.9,330)/C,(innerHeight-230)/R))),W=C*T,H=R*T;
+ const img=document.createElement('canvas');img.width=W;img.height=H;const g=img.getContext('2d');
+ const gr=g.createLinearGradient(0,0,W,H);gr.addColorStop(0,'#d9c9a3');gr.addColorStop(1,'#a88f63');g.fillStyle=gr;g.fillRect(0,0,W,H);
+ g.fillStyle='#3a2f20aa';for(let y=7;y<H-4;y+=9)g.fillRect(5,y,W*(.45+Math.random()*.5),3);
+ for(let i=0;i<n;i++){const cx=(i%C)*T+T*(.28+Math.random()*.44),cy=Math.floor(i/C)*T+T*(.28+Math.random()*.44);g.fillStyle=`hsl(${(i*53+Math.random()*25)%360},72%,48%)`;g.beginPath();
+  if(i%3===0)g.arc(cx,cy,T*.17,0,7);else if(i%3===1)g.rect(cx-T*.15,cy-T*.15,T*.3,T*.3);else{g.moveTo(cx,cy-T*.18);g.lineTo(cx+T*.18,cy+T*.14);g.lineTo(cx-T*.18,cy+T*.14)}g.fill()}
+ let ord;do ord=shuf([...Array(n).keys()]);while(ord.filter((v,i)=>v===i).length>1);
+ let sel=-1;const ok=()=>ord.filter((v,i)=>v===i).length;
+ const wrap=document.createElement('div');wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:6px';
+ if(s===1||r.L>=2){const th=document.createElement('canvas');th.width=W;th.height=H;th.style.cssText=`width:${Math.round(W*.4)}px;height:${Math.round(H*.4)}px;border-radius:5px;border:1px solid #ffffff55`;th.getContext('2d').drawImage(img,0,0);wrap.appendChild(th)}
+ const grid=document.createElement('div');grid.style.cssText=`display:grid;grid-template-columns:repeat(${C},${T}px);gap:2px`;wrap.appendChild(grid);
+ const draw=()=>{grid.innerHTML='';ord.forEach((id,i)=>{const cv=document.createElement('canvas');cv.width=cv.height=T;cv.style.cssText=`width:${T}px;height:${T}px;border:2px solid ${i===sel?'#ffe14a':id===i?'#3cd070':'#ffffff33'};box-sizing:border-box;border-radius:3px`;
+  cv.getContext('2d').drawImage(img,(id%C)*T,Math.floor(id/C)*T,T,T,0,0,T,T);cv.onclick=()=>pick2(i);grid.appendChild(cv)})};
+ const swap=(a,b)=>{const t=ord[a];ord[a]=ord[b];ord[b]=t};
+ function pick2(i){if(r.over)return;if(sel<0){sel=i;draw();return}if(sel===i){sel=-1;draw();return}
+  const before=ok();swap(sel,i);sel=-1;draw();if(ok()===n){pzEnd(true);return}if(ok()<before)pzMist()}
+ r.hintFn=()=>{const i=ord.findIndex((v,k)=>v!==k);if(i<0)return;const j=ord.indexOf(i);swap(i,j);sel=-1;draw();if(ok()===n)pzEnd(true)};
+ const t=document.createElement('div');t.style.cssText='font-size:11px;text-align:center;color:#9fb0c3';t.textContent='Toque em duas peças para trocá-las e remontar a foto rasgada. Tirar uma peça certa do lugar conta como erro.';
+ B.appendChild(wrap);B.appendChild(t);draw()}
+// Toxicologia: toque quando o marcador estiver na faixa verde
+function pzTox(B){const r=pzRun,s=r.s,need=[3,4,5][s-1],S=Math.round(Math.max(220,Math.min(320,innerWidth*.88))),Hh=76,spd=[.9,1.2,1.6][s-1];
+ let zw=[.22,.15,.1][s-1]*(r.L>=2?1.25:1);
+ const c=document.createElement('canvas');c.width=S*2;c.height=Hh*2;c.style.cssText=`width:${S}px;height:${Hh}px;border-radius:10px;border:2px solid #ffffff44;touch-action:manipulation`;B.appendChild(c);
+ const g=c.getContext('2d');g.scale(2,2);
+ let hits=0,zc=.3+Math.random()*.4,t0=performance.now(),raf=0,fl=0,fc='#3cd070';
+ const pos=()=>.5+.5*Math.sin((performance.now()-t0)/1000*spd*Math.PI*1.2);
+ function draw(){g.fillStyle='#10161c';g.fillRect(0,0,S,Hh);g.fillStyle='#1b2a38';g.fillRect(10,26,S-20,18);
+  g.fillStyle='#3cd07099';g.fillRect(10+(zc-zw/2)*(S-20),22,zw*(S-20),26);
+  g.fillStyle='#ffe14a';g.fillRect(10+pos()*(S-20)-2,14,4,42);
+  for(let i=0;i<need;i++){g.fillStyle=i<hits?'#3cd070':'#ffffff33';g.beginPath();g.arc(S/2-(need-1)*10+i*20,Hh-8,5,0,7);g.fill()}
+  if(performance.now()<fl){g.fillStyle=fc+'33';g.fillRect(0,0,S,Hh)}
+  raf=requestAnimationFrame(draw)}
+ c.addEventListener('pointerdown',e=>{e.preventDefault();if(r.over)return;fl=performance.now()+180;
+  if(Math.abs(pos()-zc)<=zw/2){fc='#3cd070';hits++;zc=.2+Math.random()*.6;if(hits>=need)pzEnd(true)}else{fc='#ff5a5a';pzMist()}});
+ r.hintFn=()=>{zw*=1.5};r.cleanup=()=>cancelAnimationFrame(raf);draw();
+ const t=document.createElement('div');t.style.cssText='font-size:11px;text-align:center;color:#9fb0c3';t.textContent=`Toque quando o marcador amarelo estiver na faixa verde (${need} acertos). Fora da faixa é erro.`;B.appendChild(t)}
+// Câmera de segurança: ache as diferenças entre as duas imagens
+function pzCam(B){const r=pzRun,s=r.s,N=[3,4,5][s-1],land=innerWidth>innerHeight*1.25,
+  cw=Math.round(Math.max(130,Math.min(land?(innerWidth-60)/2:innerWidth*.9,land?innerHeight-170:(innerHeight-210)/2*1.45,340))),ch=Math.round(cw*.68),R=cw*.09;
+ const M=[];for(let t=0;M.length<8+s*2&&t<300;t++){const q={x:.08+Math.random()*.84,y:.14+Math.random()*.72,z:.05+Math.random()*.03,t:Math.floor(Math.random()*3),h:Math.floor(Math.random()*360)};if(M.every(o=>Math.hypot((o.x-q.x)*cw,(o.y-q.y)*ch)>cw*.16))M.push(q)}
+ const dif=shuf(M.map((_,i)=>i)).slice(0,Math.min(N,M.length)).map(i=>({i,k:pick(['cor','sumiu','moveu']),f:false}));
+ const alt=M.map(o=>({...o}));dif.forEach(d=>{const o=alt[d.i];if(d.k==='cor')o.h=(o.h+140)%360;else if(d.k==='sumiu')o.gone=true;else o.x=o.x>.5?o.x-.14:o.x+.14});
+ let hint=null,lastBad=0;const tm=[];
+ const mkc=lab=>{const c=document.createElement('canvas');c.width=cw*2;c.height=ch*2;c.style.cssText=`width:${cw}px;height:${ch}px;border-radius:8px;border:2px solid #ffffff44;touch-action:manipulation`;const g=c.getContext('2d');g.scale(2,2);c.lab=lab;c.g=g;return c};
+ const ca=mkc('ANTES • 21:04'),cb=mkc('DEPOIS • 21:19');
+ const paint=(c,objs)=>{const g=c.g;g.fillStyle='#1d252d';g.fillRect(0,0,cw,ch);g.fillStyle='#2b3640';g.fillRect(0,ch*.64,cw,ch*.36);
+  objs.forEach(o=>{if(o.gone)return;g.fillStyle=`hsl(${o.h},65%,52%)`;const x=o.x*cw,y=o.y*ch,z=o.z*cw;g.beginPath();if(o.t===0)g.rect(x-z,y-z,2*z,2*z);else if(o.t===1)g.arc(x,y,z,0,7);else{g.moveTo(x,y-z);g.lineTo(x+z,y+z);g.lineTo(x-z,y+z)}g.fill()});
+  dif.forEach((d,k)=>{const o=M[d.i];if(d.f){g.strokeStyle='#3cd070';g.lineWidth=3;g.beginPath();g.arc(o.x*cw,o.y*ch,R,0,7);g.stroke()}
+   else if(hint&&hint.k===k&&performance.now()<hint.t){g.strokeStyle='#ffe14a';g.lineWidth=2;g.beginPath();g.arc(o.x*cw,o.y*ch,R+3,0,7);g.stroke()}});
+  g.fillStyle='#ffffffcc';g.font='bold 10px monospace';g.fillText('● REC  '+c.lab,6,12)};
+ const info=document.createElement('div');info.style.cssText='font-size:11px;text-align:center;color:#9fb0c3;margin-top:4px';
+ const render=()=>{paint(ca,M);paint(cb,alt);info.textContent=`Compare as imagens e toque nas diferenças: ${dif.filter(d=>d.f).length}/${dif.length}`};
+ const tap=e=>{if(r.over)return;const q=e.currentTarget.getBoundingClientRect(),x=(e.clientX-q.left)*cw/q.width,y=(e.clientY-q.top)*ch/q.height;
+  const f=dif.find(d=>!d.f&&(Math.hypot(x-M[d.i].x*cw,y-M[d.i].y*ch)<R||Math.hypot(x-alt[d.i].x*cw,y-alt[d.i].y*ch)<R));
+  if(f){f.f=true;render();if(dif.every(d=>d.f))pzEnd(true)}else if(performance.now()-lastBad>400&&!dif.some(d=>d.f&&Math.hypot(x-M[d.i].x*cw,y-M[d.i].y*ch)<R)){lastBad=performance.now();pzMist()}};
+ ca.addEventListener('pointerdown',tap);cb.addEventListener('pointerdown',tap);
+ r.hintFn=()=>{const k=dif.findIndex(d=>!d.f);if(k<0)return;hint={k,t:performance.now()+6000};render();tm.push(setTimeout(render,6100))};
+ r.cleanup=()=>tm.forEach(clearTimeout);
+ const wrap=document.createElement('div');wrap.style.cssText=`display:flex;flex-direction:${land?'row':'column'};gap:6px;align-items:center`;wrap.append(ca,cb);B.append(wrap,info);render()}
 
 loop();
 </script></body></html>
