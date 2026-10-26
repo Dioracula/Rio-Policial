@@ -174,8 +174,8 @@ function buildPerson(o){
  add(new THREE.BoxGeometry(.7,.9,.4),sm,0,1.35,0);
  const head=add(new THREE.SphereGeometry(.26,12,10),mat(o.skin),0,2,0);head.userData.p='h';
  const mk=(x,y,geo,m,oy)=>{const p=new THREE.Group();p.position.set(x,y,0);add(geo,m,0,oy,0,p);g.add(p);return p};
- const legL=mk(-.18,.9,new THREE.BoxGeometry(.3,.9,.32),pm,-.45),legR=mk(.18,.9,new THREE.BoxGeometry(.3,.9,.32),pm,-.45);
- const armL=mk(-.46,1.75,new THREE.BoxGeometry(.2,.8,.22),sm,-.4),armR=mk(.46,1.75,new THREE.BoxGeometry(.2,.8,.22),sm,-.4);legL.children[0].userData.p=legR.children[0].userData.p='l';armL.children[0].userData.p=armR.children[0].userData.p='a';
+ const lgk=x=>{const p=new THREE.Group();p.position.set(x,.9,0);add(new THREE.BoxGeometry(.3,.45,.32),pm,0,-.225,0,p).userData.p='l';const k=new THREE.Group();k.position.y=-.45;p.add(k);add(new THREE.BoxGeometry(.3,.46,.32),pm,0,-.23,0,k).userData.p='l';p.knee=k;g.add(p);return p},legL=lgk(-.18),legR=lgk(.18);
+ const armL=mk(-.46,1.75,new THREE.BoxGeometry(.2,.8,.22),sm,-.4),armR=mk(.46,1.75,new THREE.BoxGeometry(.2,.8,.22),sm,-.4);armL.children[0].userData.p=armR.children[0].userData.p='a';
  if(o.hat){const hm=mat(o.hatColor);add(new THREE.CylinderGeometry(.28,.28,.12,12),hm,0,2.22,0).userData.p='h';add(new THREE.BoxGeometry(.3,.04,.25),hm,0,2.17,.25)}
  if(o.pack)add(new THREE.BoxGeometry(.5,.6,.22),mat(0x4b3a2a),0,1.4,-.3);
  g.scale.setScalar(o.scale||1);
@@ -732,13 +732,13 @@ function camUpdate(dt,P){
  if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*(1-Math.exp(-9*dt));camera.updateProjectionMatrix()}
  car.g.visible=!(riding&&aimOn);if(!driving&&!riding)player.visible=camD>1.1}
 let ph=0,time=0;const clock=new THREE.Clock(),B=262;
-let crouch=false,cov=null,rollEnd=0,rollCd=0,rollDX=0,rollDZ=1,lastMX=0,lastMZ=1,leanOff=0,blindOff=0,rollWas=false;player.rotation.order='YXZ';
+let crouch=false,cov=null,rollEnd=0,rollCd=0,rollDX=0,rollDZ=1,lastMX=0,lastMZ=1,leanOff=0,blindOff=0,rollWas=false;player.rotation.order='YXZ';let crC=0;const vOff={y:0,z:0};
 const aabbD=(b,x,z)=>Math.hypot(Math.max(Math.abs(x-b.x)-b.w/2,0),Math.max(Math.abs(z-b.z)-b.d/2,0));
-function tryCover(){const p=player.position;let b=null,bd=1.7;for(const q of cellOf(p.x,p.z)){if(!(q.h!=null||Math.max(q.w,q.d)>=1.6))continue;const d=aabbD(q,p.x,p.z);if(d<bd){bd=d;b=q}}
+function tryCover(rad=1.7){const p=player.position;let b=null,bd=rad;for(const q of cellOf(p.x,p.z)){if(!(q.h!=null||Math.max(q.w,q.d)>=1.6))continue;const d=aabbD(q,p.x,p.z);if(d<bd){bd=d;b=q}}
  if(!b)return false;const ox=p.x-b.x,oz=p.z-b.z,rx=Math.abs(ox)-b.w/2,rz=Math.abs(oz)-b.d/2;cov={c:b,nx:rx>rz?(Math.sign(ox)||1):0,nz:rx>rz?0:(Math.sign(oz)||1),low:b.h!=null&&b.h<1.5};leanOff=0;return true}
-function toggleCover(){if(driving||riding||editApp||rollEnd>time)return;if(cov){cov=null;crouch=false}else if(crouch)crouch=false;else{tryCover();crouch=true}}
+function toggleCover(){if(driving||riding||editApp||rollEnd>time)return;if(cov){cov=null;crouch=false}else if(crouch)crouch=false;else{crouch=true;if(tryCover())msg('Em cobertura: mire para espiar, atire sem mirar para tiro cego',2200);else msg('Agachado — chegue perto de uma parede, carro ou lixeira',1800)}}
 function startRoll(){if(driving||riding||editApp||time<rollCd||rollEnd>time)return;const l=Math.hypot(lastMX,lastMZ)||1;rollDX=lastMX/l;rollDZ=lastMZ/l;rollEnd=time+.55;rollCd=time+1.3;cov=null;crouch=false;aim=false;$('aimb').style.background='#6e7681'}
-const shielded=(sx,sz)=>{if(!cov||driving||riding)return false;const P=player.position,dx=sx-P.x,dz=sz-P.z,l=Math.hypot(dx,dz)||1;return(-cov.nx*dx-cov.nz*dz)/l>.25&&!(cov.low&&aimOn)&&!(!cov.low&&aimOn&&Math.abs(leanOff)>.4)};
+const shielded=(sx,sz)=>{if(!cov||driving||riding)return false;const P=player.position,dx=sx-P.x,dz=sz-P.z,l=Math.hypot(dx,dz)||1;return(-cov.nx*dx-cov.nz*dz)/l>.25&&!(cov.low&&aimOn)&&!(!cov.low&&cov.home)};
 {const mk=(id,tx,bg,f)=>{const b=document.createElement('button');b.className='btn';b.id=id;b.textContent=tx;b.style.background=bg;b.addEventListener('pointerdown',e=>{e.preventDefault();f()});$('acts').appendChild(b)};mk('rollb','ROLAR','#2f6f9f',startRoll);mk('covb','COBERT.','#7a5a2a',toggleCover)}
 const TRF=[],LANE=[[0,3],[-3,0],[0,-3],[3,0]],TANG=[Math.PI/2,0,-Math.PI/2,Math.PI],TV=[[1,0],[0,1],[-1,0],[0,-1]];
 function mkTraffic(){const cols=[0xc0392b,0x2c6fbb,0xe0b400,0x2e7d4f,0x777777,0xeeeeee,0x6a4a7a,0xd9772b];
@@ -762,6 +762,12 @@ function updTraffic(dt){if(inside)return;const P=pos();
   if(driving&&carHp>0){const dx=p.x-car.g.position.x,dz=p.z-car.g.position.z;if(dx*dx+dz*dz<9&&time>o.bump){o.bump=time+1;const sv=Math.abs(cs);if(sv>5){carDamage(Math.min(10,sv*.45));msg('Colisão com o trânsito!',900)}cs=-cs*.35;o.sp=0}}}}
 mkTraffic();
 // IA: criminosos procuram objeto entre eles e o jogador, correm até lá, ficam agachados e espiam por cima (baixo) ou pela lateral (alto) para atirar
+// Agachar: coxas à frente e joelhos dobrados, corpo desce e recua. Rolar: encolhe, dobra pernas/braços e gira em torno do centro do corpo (sem afundar no chão)
+function bodyPose(){const P=pl.parts,rolling=rollEnd>time;let rx=0,sc=1,oy=-.41*crC,oz=-.447*crC,tk=0;
+ if(rolling){const u=1-(rollEnd-time)/.55;tk=Math.max(0,Math.min(1,u/.18,(1-u)/.18));rx=Math.max(0,Math.min(1,(u-.18)/.64))*Math.PI*2;sc=1-.4*tk;oy=sc*(1-Math.cos(rx))+.12*tk;oz=-sc*Math.sin(rx)}
+ player.rotation.x=rx;player.scale.setScalar(sc);vOff.y=oy;vOff.z=oz;
+ const f=Math.max(crC,tk);for(const L of[P.legL,P.legR]){L.rotation.x=(rolling?-1.6:-1.45)*f+L.rotation.x*(1-f);L.knee.rotation.x=(rolling?2.2:1.45)*f}
+ P.armL.rotation.x=(rolling?-2:-.7)*f+P.armL.rotation.x*(1-f);if(rolling)P.armR.rotation.x=-2*tk+P.armR.rotation.x*(1-tk)}
 function findCover(p,P){let best=null,bd=1e9;
  for(const b of cellsNear(p.x,p.z)){if(!(b.h!=null||Math.max(b.w,b.d)>=1.6))continue;const lx=b.x-P.x,lz=b.z-P.z,l=Math.hypot(lx,lz)||1,ux=lx/l,uz=lz/l,k=Math.min((b.w/2+.9)/(Math.abs(ux)||1e-3),(b.d/2+.9)/(Math.abs(uz)||1e-3)),qx=b.x+ux*k,qz=b.z+uz*k,d=Math.hypot(qx-p.x,qz-p.z);
   if(d>14||d>=bd||collides(qx,qz,.5))continue;let hit=false;for(let s=.15;s<1;s+=.17){const x=p.x+(qx-p.x)*s,z=p.z+(qz-p.z)*s;if(Math.abs(x-b.x)<b.w/2&&Math.abs(z-b.z)<b.d/2){hit=true;break}}if(hit)continue;
@@ -800,20 +806,25 @@ function loop(){
   const spd=aimOn?3.4:(crouch||cov)?3.4:7,nx=p.x+mx*spd*dt,nz=p.z+mz*spd*dt;const Z=ZB||{x0:-B,x1:B,z0:-B,z1:B};if(!collides(nx,p.z,.6))p.x=Math.max(Z.x0,Math.min(Z.x1,nx));if(!collides(p.x,nz,.6))p.z=Math.max(Z.z0,Math.min(Z.z1,nz));
   if(!aimOn&&!cov){let d=Math.atan2(mx,mz)-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*12)}ph+=dt*(aimOn?5:9)}
  {const p=player.position,rolling=rollEnd>time;
-  if(rolling){rollWas=true;player.rotation.x=-(1-(rollEnd-time)/.55)*Math.PI*2}else if(rollWas){rollWas=false;player.rotation.x=0;if(tryCover())crouch=true}
+  if(rolling){rollWas=true}else if(rollWas){rollWas=false;if(tryCover()){crouch=true;msg('Em cobertura',700)}}
+  if(crouch&&!cov&&!rolling&&!aimOn)tryCover(.95);
   if(len<.05&&!rolling){lastMX=Math.sin(player.rotation.y);lastMZ=Math.cos(player.rotation.y)}
   if(driving||riding){crouch=false;cov=null;player.rotation.x=0}
   if(cov&&!rolling){
    if(aabbD(cov.c,p.x,p.z)>1.5){cov=null;leanOff=0}else{
-    const qx=p.x-cov.nx*1.6*dt,qz=p.z-cov.nz*1.6*dt;if(!collides(qx,qz,.6)){p.x=qx;p.z=qz}
+    if(!cov.home){const qx=p.x-cov.nx*1.6*dt,qz=p.z-cov.nz*1.6*dt;if(!collides(qx,qz,.6)){p.x=qx;p.z=qz}}
     if(!aimOn){let d=Math.atan2(-cov.nx,-cov.nz)-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*12)}
-    const tx=-cov.nz,tz=cov.nx,want=(!cov.low&&aimOn)?(Math.sign(-Math.cos(camYaw)*tx+Math.sin(camYaw)*tz)||1):0,dl=Math.max(-4*dt,Math.min(4*dt,want-leanOff)),lx=p.x+tx*dl,lz=p.z+tz*dl;
-    if(dl&&!collides(lx,lz,.55)){p.x=lx;p.z=lz;leanOff+=dl}}}
-  else leanOff=0;
-  const ws=rolling?.8:((cov&&cov.low&&aimOn)?1:(crouch||cov)?.72:1);player.scale.y+=(ws-player.scale.y)*Math.min(1,dt*14);
+    const tx=-cov.nz,tz=cov.nx,b=cov.c;
+    if(!cov.low&&aimOn){ // espiar pela quina: desliza até a ponta da parede; volta ao soltar a mira
+     if(!cov.home){cov.home={x:p.x,z:p.z};cov.sg=Math.sign(-Math.cos(camYaw)*tx+Math.sin(camYaw)*tz)||1}
+     const dS=cov.sg*(tx||tz),goal=(tx?b.x:b.z)+dS*((tx?b.w:b.d)/2+.9),cur=tx?p.x:p.z,st=Math.max(-7*dt,Math.min(7*dt,goal-cur)),nx2=tx?p.x+st:p.x,nz2=tx?p.z:p.z+st;
+     if(!collides(nx2,nz2,.5)){p.x=nx2;p.z=nz2}}
+    else if(cov.home){const hx=cov.home.x-p.x,hz=cov.home.z-p.z,dd=Math.hypot(hx,hz);
+     if(dd<.12)cov.home=null;else{const st=Math.min(dd,7*dt),nx2=p.x+hx/dd*st,nz2=p.z+hz/dd*st;if(!collides(nx2,nz2,.5)){p.x=nx2;p.z=nz2}else cov.home=null}}}}
+  crC+=(((crouch||cov)&&!aimOn&&!rolling?1:0)-crC)*Math.min(1,dt*12);
   const cb=$('covb');if(cb)cb.textContent=cov?'SAIR':crouch?'LEVANTAR':'COBERT.'}
  if(aimOn){let d=camYaw-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*16)}
- walk(pl.parts,ph,moving&&!driving);if(swingT>0)swingT=Math.max(0,swingT-dt);poseArm(pl,aimOn,swingT);
+ walk(pl.parts,ph,moving&&!driving);if(swingT>0)swingT=Math.max(0,swingT-dt);poseArm(pl,aimOn,swingT);bodyPose();
  if(riding){const so=SEAT_OFF[riding]||SEAT_OFF[1],cy=car.g.rotation.y;
   player.position.set(car.g.position.x+so.x*Math.cos(cy)+so.z*Math.sin(cy),0,car.g.position.z-so.x*Math.sin(cy)+so.z*Math.cos(cy))}
  const P=pos();
@@ -866,7 +877,7 @@ function loop(){
  if(n.bar){n.bar.visible=en;if(en){const p=n.mesh.position,r=Math.max(.001,(n.hp==null?100:n.hp)/100),f=n.bar.userData.f;n.bar.position.set(p.x,n.mesh.scale.y*2.7+p.y,p.z);n.bar.quaternion.copy(camera.quaternion);f.scale.x=r;f.position.x=-.5*(1-r)}}}
  camUpdate(dt,P);if(aimOn&&(fc&3)===0)$('xh').style.borderColor=aimShot().tgt?'#ff5a5a':'#ffffffcc';
  sun.position.set(P.x+35,70,P.z+25);sun.target.position.set(P.x,0,P.z);
- gps();ctxUpdate();sendPres();updCarFx();updTraffic(dt);renderer.render(scene,camera);
+ gps();ctxUpdate();sendPres();updCarFx();updTraffic(dt);{const yw=player.rotation.y,ox=Math.sin(yw)*vOff.z,oz=Math.cos(yw)*vOff.z,pp=player.position;pp.x+=ox;pp.y+=vOff.y;pp.z+=oz;renderer.render(scene,camera);pp.x-=ox;pp.y-=vOff.y;pp.z-=oz}
 }
 // ---------- Conta, social e multiplayer (servidor próprio) ----------
 let aim=false,nick='',myKey='',friends=[],roomCode='',roomMembers=[],remotes={},playing=false,offline=false,lastPres=0,ws=null,authRes=null,reconT=null,noRecon=false,token=null,entering=false;
