@@ -719,7 +719,7 @@ JZ.addEventListener('pointermove',e=>{if(e.pointerId!==jid)return;
 const jend=e=>{if(e.pointerId!==jid)return;jid=null;joy={x:0,y:0};S.style.left=S.style.top='35px';J.classList.remove('on');J.style.left=J.style.top=J.style.bottom=''};
 ['pointerup','pointercancel'].forEach(k=>JZ.addEventListener(k,jend));
 // câmera fluida: arrasta com qualquer dedo livre; suavização exponencial
-let shSide=1,shO=1;let aimOn=false,editApp=false,edSave={y:0,p:.45},edZoom=false,fc=0;
+let shSide=1,shO=1,aimMsgT=0;let aimOn=false,editApp=false,edSave={y:0,p:.45},edZoom=false,fc=0;
 let camYaw=0,camPitch=.45,yawT=0,pitchT=.45,dist=9,camPos=new THREE.Vector3(0,6,-17),did=null,lx=0,ly=0;const cv=$('c');
 const ZMIN=3,ZMAX=20,cpt=new Map();let pd0=0,faint=null;
 cv.addEventListener('pointerdown',e=>{cpt.set(e.pointerId,[e.clientX,e.clientY]);if(cpt.size===2){const[a,b]=[...cpt.values()];pd0=Math.hypot(a[0]-b[0],a[1]-b[1])}if(did===null){did=e.pointerId;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(e.pointerId)}else{try{cv.setPointerCapture(e.pointerId)}catch(_){}}});
@@ -755,11 +755,11 @@ function camUpdate(dt,P){
  if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*(1-Math.exp(-9*dt));camera.updateProjectionMatrix()}
  car.g.visible=!(riding&&aimOn);if(!driving&&!riding)player.visible=camD>1.1&&!(faint&&faint.onboard)}
 let ph=0,time=0;const clock=new THREE.Clock(),B=262;
-let crouch=false,cov=null,rollEnd=0,rollCd=0,rollDX=0,rollDZ=1,lastMX=0,lastMZ=1,leanOff=0,blindOff=0,rollWas=false;player.rotation.order='YXZ';let crC=0,plMove=false;const vOff={y:0,z:0};
+let crouch=false,cov=null,rollEnd=0,rollCd=0,rollDX=0,rollDZ=1,lastMX=0,lastMZ=1,leanOff=0,blindOff=0,rollWas=false;player.rotation.order='YXZ';let crC=0,covC=0,plMove=false;const vOff={y:0,z:0};
 const aabbD=(b,x,z)=>Math.hypot(Math.max(Math.abs(x-b.x)-b.w/2,0),Math.max(Math.abs(z-b.z)-b.d/2,0));
 function tryCover(rad=1.7){const p=player.position;let b=null,bd=rad;for(const q of cellOf(p.x,p.z)){if(!(q.h!=null||Math.max(q.w,q.d)>=1.6))continue;const d=aabbD(q,p.x,p.z);if(d<bd){bd=d;b=q}}
- if(!b)return false;const ox=p.x-b.x,oz=p.z-b.z,rx=Math.abs(ox)-b.w/2,rz=Math.abs(oz)-b.d/2;cov={c:b,nx:rx>rz?(Math.sign(ox)||1):0,nz:rx>rz?0:(Math.sign(oz)||1),low:b.h!=null&&b.h<1.5};leanOff=0;return true}
-function toggleCover(){if(faint||driving||riding||editApp||rollEnd>time)return;if(cov){cov=null;crouch=false}else if(crouch)crouch=false;else{crouch=true;if(tryCover())msg('Em cobertura: mire para espiar, atire sem mirar para tiro cego',2200);else msg('Agachado — chegue perto de uma parede, carro ou lixeira',1800)}}
+ if(!b)return false;const ox=p.x-b.x,oz=p.z-b.z,rx=Math.abs(ox)-b.w/2,rz=Math.abs(oz)-b.d/2;cov={c:b,nx:rx>rz?(Math.sign(ox)||1):0,nz:rx>rz?0:(Math.sign(oz)||1),low:b.h!=null&&b.h<1.5};leanOff=0;crouch=cov.low;return true}
+function toggleCover(){if(faint||driving||riding||editApp||rollEnd>time)return;if(cov){cov=null;crouch=false}else if(crouch)crouch=false;else if(tryCover())msg(cov.low?'Cobertura baixa: mire para espiar por cima. Toque em SAIR para sair':'Encostado na parede: deslize até a ponta para mirar. Toque em SAIR para sair',2800);else{crouch=true;msg('Agachado — chegue perto de uma parede, carro ou lixeira',1800)}}
 function startRoll(){if(faint||driving||riding||editApp||time<rollCd||rollEnd>time)return;const l=Math.hypot(lastMX,lastMZ)||1;rollDX=lastMX/l;rollDZ=lastMZ/l;rollEnd=time+.55;rollCd=time+1.3;cov=null;crouch=false;aim=false;$('aimb').style.background='#6e7681'}
 // Cobertura: devolve a chance (0..1) de a parede absorver um tiro vindo de (sx,sz). Ao espiar/atirar o jogador fica exposto.
 const coverBlock=(sx,sz)=>{if(!cov||driving||riding)return 0;const P=player.position,dx=sx-P.x,dz=sz-P.z,l=Math.hypot(dx,dz)||1;
@@ -808,7 +808,7 @@ function carVsPeds(){if(inside||carHp<=0)return;const g=car.g,mv=driving&&Math.a
 mkTraffic();
 // IA: criminosos procuram objeto entre eles e o jogador, correm até lá, ficam agachados e espiam por cima (baixo) ou pela lateral (alto) para atirar
 // Agachar: coxas à frente e joelhos dobrados, corpo desce e recua. Rolar: encolhe, dobra pernas/braços e gira em torno do centro do corpo (sem afundar no chão)
-function bodyPose(){const P=pl.parts,rolling=rollEnd>time;let rx=0,sc=1,oy=-.41*crC,oz=-.447*crC,tk=0;
+function bodyPose(){const P=pl.parts,rolling=rollEnd>time;let rx=0,sc=1,oy=-.41*crC,oz=-.447*crC-.3*covC,tk=0;
  if(rolling){const u=1-(rollEnd-time)/.55;tk=Math.max(0,Math.min(1,u/.18,(1-u)/.18));rx=Math.max(0,Math.min(1,(u-.18)/.64))*Math.PI*2;sc=1;oy=(1-Math.cos(rx))+.25*tk;oz=-Math.sin(rx)}
  if(faint&&!faint.onboard){rx=-Math.PI/2;oy=0;oz=0;player.position.y=.3}player.rotation.x=rx;player.scale.set(sc*(aimOn&&((cov&&cov.s)||shSide)<0?-1:1),sc,sc);vOff.y=oy;vOff.z=oz;
  const f=Math.max(crC,tk);for(const L of[P.legL,P.legR]){L.rotation.x=(rolling?-1.6:-1.45)*f+L.rotation.x*(1-f);L.knee.rotation.x=(rolling?2.2:1.45)*f}
@@ -836,7 +836,7 @@ function coverAI(n,p,P,dp,dt){if(n.grab||n.down>0)return -1;if(n.sy0==null)n.sy0
 function loop(){
  requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.1);time+=dt;fc++;updRemotes(dt);updSvc(dt);if(shootHeld&&WEAPONS[eq].auto)fire();
  {const em=$('menu').style.display==='flex'&&$('menu').classList.contains('ap');if(editApp&&!em){editApp=false;document.body.classList.remove('edit');$('menu').classList.remove('ap');yawT=camYaw=edSave.y;pitchT=camPitch=edSave.p}}
- aimOn=aim&&!driving&&!editApp&&!faint;
+ aimOn=aim&&!driving&&!editApp&&!faint;if(aimOn&&cov&&!cov.low&&!cov.edge){aimOn=false;if(time>aimMsgT){aimMsgT=time+2.5;msg('Vá até a ponta da parede para mirar',1400)}}
  let ix=joy.x,iy=joy.y;if(keys.w||keys.arrowup)iy-=1;if(keys.s||keys.arrowdown)iy+=1;if(keys.a||keys.arrowleft)ix-=1;if(keys.d||keys.arrowright)ix+=1;
  if(editApp||riding||faint){ix=iy=0}const len=Math.hypot(ix,iy),moving=len>.05;
  if(driving){
@@ -850,30 +850,32 @@ function loop(){
   // a posição acompanha a viatura; quem dirige é outro jogador (ou você, em outra sessão)
  }else if(rollEnd>time){const p=player.position,nx=p.x+rollDX*10.5*dt,nz=p.z+rollDZ*10.5*dt,Z=ZB||{x0:-B,x1:B,z0:-B,z1:B};if(!collides(nx,p.z,.6))p.x=Math.max(Z.x0,Math.min(Z.x1,nx));if(!collides(p.x,nz,.6))p.z=Math.max(Z.z0,Math.min(Z.z1,nz));player.rotation.y=Math.atan2(rollDX,rollDZ);ph+=dt*14
  }else if(moving){ix/=Math.max(len,1);iy/=Math.max(len,1);
-  let mx=-ix*Math.cos(camYaw)-iy*Math.sin(camYaw),mz=ix*Math.sin(camYaw)-iy*Math.cos(camYaw);const p=player.position;lastMX=mx;lastMZ=mz;if(cov){const dn=mx*cov.nx+mz*cov.nz;if(dn>.55)cov=null;else{const tx=-cov.nz,tz=cov.nx,kk=mx*tx+mz*tz;mx=tx*kk;mz=tz*kk}}
+  let mx=-ix*Math.cos(camYaw)-iy*Math.sin(camYaw),mz=ix*Math.sin(camYaw)-iy*Math.cos(camYaw);const p=player.position;lastMX=mx;lastMZ=mz;if(cov){const tx=-cov.nz,tz=cov.nx,kk=mx*tx+mz*tz;mx=tx*kk;mz=tz*kk}
   const spd=aimOn?3.4:(crouch||cov)?3.4:7,nx=p.x+mx*spd*dt,nz=p.z+mz*spd*dt;const Z=ZB||{x0:-B,x1:B,z0:-B,z1:B};if(!collides(nx,p.z,.6))p.x=Math.max(Z.x0,Math.min(Z.x1,nx));if(!collides(p.x,nz,.6))p.z=Math.max(Z.z0,Math.min(Z.z1,nz));
   if(!aimOn&&!cov){let d=Math.atan2(mx,mz)-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*12)}ph+=dt*(aimOn?5:9)}
  {const p=player.position,rolling=rollEnd>time;
-  if(rolling){rollWas=true}else if(rollWas){rollWas=false;if(tryCover()){crouch=true;msg('Em cobertura',700)}}
+  if(rolling){rollWas=true}else if(rollWas){rollWas=false;if(tryCover())msg('Em cobertura',700)}
   if(crouch&&!cov&&!rolling&&!aimOn)tryCover(.95);
   if(len<.05&&!rolling){lastMX=Math.sin(player.rotation.y);lastMZ=Math.cos(player.rotation.y)}
   if(driving||riding){crouch=false;cov=null;player.rotation.x=0}
   if(cov&&!rolling){
    if(aabbD(cov.c,p.x,p.z)>1.5){cov=null;leanOff=0}else{
-    if(!cov.home){const qx=p.x-cov.nx*1.6*dt,qz=p.z-cov.nz*1.6*dt;if(!collides(qx,qz,.6)){p.x=qx;p.z=qz}}
-    if(!aimOn){let d=Math.atan2(-cov.nx,-cov.nz)-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*12)}
+    if(!cov.home){const qx=p.x-cov.nx*4*dt,qz=p.z-cov.nz*4*dt;if(!collides(qx,qz,.6)){p.x=qx;p.z=qz}}
+    if(!aimOn){const fd=cov.low?-1:1;let d=Math.atan2(fd*cov.nx,fd*cov.nz)-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*12)}
     const tx=-cov.nz,tz=cov.nx,b=cov.c;
     // lado da mira: perto da ponta da parede = lado dessa ponta; no meio = ombro escolhido (ou troca manual)
-    {const tl=tx?b.w:b.d,off=(p.x-b.x)*tx+(p.z-b.z)*tz,rs=Math.sign(-Math.cos(camYaw)*tx+Math.sin(camYaw)*tz)||1;
+    {const tl=tx?b.w:b.d,off=(p.x-b.x)*tx+(p.z-b.z)*tz,rs=Math.sign(-Math.cos(camYaw)*tx+Math.sin(camYaw)*tz)||1,nearEnd=Math.abs(off)>tl/2-1.5,es=(Math.sign(off)||1)*rs;
      if(!aimOn)cov.man=0;
-     cov.s=cov.man||(Math.abs(off)>tl/2-2.2?(Math.sign(off)||1)*rs:shSide);cov.sg=cov.s*rs}
+     cov.edge=cov.low||nearEnd; // parede alta: só dá para mirar perto da ponta; cobertura baixa: mira por cima em qualquer ponto
+     cov.pk=nearEnd?es:shSide;cov.s=cov.man||(cov.low?(nearEnd?es:shSide):cov.pk);cov.sg=cov.pk*rs;
+     if(!cov.low&&!aimOn&&!cov.home){const lim=Math.max(0,tl/2-.3);if(Math.abs(off)>lim){const d=(Math.sign(off)*lim-off)*Math.min(1,dt*10);p.x+=tx*d;p.z+=tz*d}}}
     if(!cov.low&&aimOn){ // espiar pela quina: desliza até a ponta da parede; volta ao soltar a mira
      if(!cov.home)cov.home={x:p.x,z:p.z}
      const dS=cov.sg*(tx||tz),goal=(tx?b.x:b.z)+dS*((tx?b.w:b.d)/2+.9),cur=tx?p.x:p.z,st=Math.max(-7*dt,Math.min(7*dt,goal-cur)),nx2=tx?p.x+st:p.x,nz2=tx?p.z:p.z+st;
      if(!collides(nx2,nz2,.5)){p.x=nx2;p.z=nz2}}
     else if(cov.home){const hx=cov.home.x-p.x,hz=cov.home.z-p.z,dd=Math.hypot(hx,hz);
      if(dd<.12)cov.home=null;else{const st=Math.min(dd,7*dt),nx2=p.x+hx/dd*st,nz2=p.z+hz/dd*st;if(!collides(nx2,nz2,.5)){p.x=nx2;p.z=nz2}else cov.home=null}}}}
-  crC+=(((crouch||cov)&&!aimOn&&!rolling?1:0)-crC)*Math.min(1,dt*12);
+  crC+=(((crouch||(cov&&cov.low))&&!aimOn&&!rolling?1:0)-crC)*Math.min(1,dt*12);covC+=(((cov&&!cov.low)&&!aimOn&&!rolling?1:0)-covC)*Math.min(1,dt*12);
   const cb=$('covb');if(cb)cb.textContent=cov?'SAIR':crouch?'LEVANTAR':'COBERT.'}
  if(aimOn){let d=camYaw-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*16)}
  plMove=moving&&!driving;walk(pl.parts,ph,plMove);if(swingT>0)swingT=Math.max(0,swingT-dt);poseArm(pl,aimOn,swingT);bodyPose();
