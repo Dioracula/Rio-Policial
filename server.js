@@ -394,6 +394,25 @@ function handle(c, m) {
       for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
       break;
     }
+    case 'faint': { // jogador desmaiou / foi socorrido: todos na sala veem
+      const r = rooms.get(c.room); if (!r) return;
+      const out = { t: 'faint', n: u.nick, on: m.on ? 1 : 0, x: +num(m.x, -2000, 2000).toFixed(1), z: +num(m.z, -2000, 2000).toFixed(1) };
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
+      break;
+    }
+    case 'amb': { // ambulância chamada para um jogador desmaiado da sala
+      const r = rooms.get(c.room); if (!r) return;
+      const who = String(m.who || '').toLowerCase();
+      if (!NICK.test(who) || !r.members.includes(who)) return;
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send({ t: 'amb', who }); }
+      break;
+    }
+    case 'svc': { // reforços chamados: a sala inteira vê a viatura e os policiais
+      const r = rooms.get(c.room); if (!r || m.k !== 'ref') return;
+      const t = now(); if (t - (c.lastSvc || 0) < 5000) return; c.lastSvc = t;
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send({ t: 'svc', k: 'ref', by: u.nick }); }
+      break;
+    }
     case 'logout':
       if (typeof m.token === 'string') dropSession(sha(m.token.slice(0, 100)));
       dropUser(c); break;
