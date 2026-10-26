@@ -136,12 +136,12 @@ function lmDecor(k,cx,cz,w,d,h,s){const top=.1+h,zf=cz+s*d/2;
 function pcar(x,z,az){const c=pick([0xc0392b,0x2c6fbb,0xe0b400,0x2e7d4f,0x777777,0xeeeeee]),w=az?1.9:4.4,d=az?4.4:1.9;sbox(x,.75,z,w,.7,d,c);sbox(x,1.35,z,az?1.7:2.2,.6,az?2.2:1.7,0x222a33);
  for(const a of[-1,1])for(const b of[-1,1])sbox(x+(az?a*.95:b*1.4),.3,z+(az?b*1.4:a*.95),.3,.6,.3,0x111111);colliders.push({x,z,w:az?2.1:4.6,d:az?4.6:2.1,h:1.45})}
 function trash(x,z){sgeo(new THREE.CylinderGeometry(.42,.36,.95,8),x,.55,z,pick([0x3a5f3a,0x2f4f7a,0x555555]));sbox(x,1.08,z,.9,.1,.9,0x222222);colliders.push({x,z,w:.9,d:.9,h:1.05})}
-function props(cx,cz,w,d){if(Math.random()<.5)pcar(cx+(Math.random()<.5?-1:1)*12.9,cz+(Math.random()-.5)*14,true);if(Math.random()<.35)pcar(cx+(Math.random()-.5)*14,cz+12.9,false);
- for(let q=0;q<2;q++)if(Math.random()<.65)trash(cx+(Math.random()<.5?-1:1)*(w/2+1.3),cz+(Math.random()-.5)*d*.8)}
+function props(cx,cz,w,d){for(const sx of[-1,1])if(Math.random()<.55)pcar(cx+sx*8.9,cz+(Math.random()-.5)*8,true);
+ for(let q=0;q<2;q++)if(Math.random()<.65)trash(cx+(Math.random()-.5)*w*.8,cz-d/2-1)}
 const slabM=0x9a9a95;
 for(let i=-GN;i<=GN;i++)for(let j=-GN;j<=GN;j++){
- const cx=i*32,cz=j*32;sbox(cx,.05,cz,24,.1,24,slabM);
- if(Math.random()<.5)[[-1,-1],[1,1]].forEach(([a,b])=>{sgeo(new THREE.CylinderGeometry(.08,.08,5,5),cx+a*12.3,2.5,cz+b*12.3,0x444444);sbox(cx+a*12.3,5.1,cz+b*12.3,.5,.3,.5,0xffe9a8)});
+ const cx=i*32,cz=j*32;sbox(cx,.05,cz,20,.1,20,slabM);
+ if(Math.random()<.5)[[-1,-1],[1,1]].forEach(([a,b])=>{sgeo(new THREE.CylinderGeometry(.08,.08,5,5),cx+a*9.6,2.5,cz+b*9.6,0x444444);sbox(cx+a*9.6,5.1,cz+b*9.6,.5,.3,.5,0xffe9a8)});
  if(!i&&!j){const s=new THREE.Mesh(new THREE.CylinderGeometry(2.5,3,1.2,16),mat(0x777777));s.position.set(0,.7,0);s.castShadow=true;scene.add(s);colliders.push({x:0,z:0,w:6,d:6,h:1.3});continue}
  if(BANKS.some(([a,b])=>a===i&&b===j)){BKS.push({x:cx,z:cz,w:16,d:14});BK=BKS[0];
   shell(cx,cz,16,14,9,-1,tbat('#d9cfae',0),{door:0x2a1f12});lmSign(cx,cz,'BANCO','#14305c','#ffd24a',-1,6.5,10,44);
@@ -150,10 +150,10 @@ for(let i=-GN;i<=GN;i++)for(let j=-GN;j<=GN;j++){
    lmSign(cx,cz,lm.n,'#222','#fff',1,Math.min(7,lm.h-2.5),10,38);lmDecor(lm.k,cx,cz,w,14,lm.h,1);LMS.push({x:cx,z:cz,n:lm.n,c:lm.c});continue}}
  if(i===0&&j===-1){shell(cx,cz,18,14,10,1,tbat('#2b4a8a',0),{door:0x10224a});lmSign(cx,cz,'POLÍCIA','#fff','#14305c',1,7,10,40);
   sbox(cx,4.3,cz,18.2,.5,14.2,0xffffff);sbox(cx-3,10.7,cz,1.4,.8,1.2,0xff2222);sbox(cx+3,10.7,cz,1.4,.8,1.2,0x2266ff);continue}
- const w=12+Math.random()*7,d=12+Math.random()*7,h=8+Math.random()*(Math.random()<.25?30:16),base=pick(BASES),tc=pick(TOLD),ant=Math.random()<.4;
+ const w=11+Math.random()*4,d=11+Math.random()*4,h=8+Math.random()*(Math.random()<.25?30:16),base=pick(BASES),tc=pick(TOLD),ant=Math.random()<.4;
  shell(cx,cz,w,d,h,1,tbat(base,Math.floor(Math.random()*3)));decor(cx,cz,w,d,h,1,tc,ant);
  BLD.push({x:cx,z:cz,w,d,h,cor:BN[BASES.indexOf(base)],toldo:tc.n,ant});props(cx,cz,w,d);
- const tx=cx+(Math.random()<.5?-11:11),tz=cz+(Math.random()<.5?-11:11),ts=.8+Math.random()*.6;
+ const tsg=Math.random()<.5?-1:1,tx=cx+tsg*9.2,tz=cz-tsg*9.2,ts=.8+Math.random()*.6;
  sgeo(new THREE.CylinderGeometry(.25,.3,2,6),tx,1,tz,0x5a3d22);sgeo(new THREE.ConeGeometry(1.6*ts,3.6*ts,8),tx,2+1.8*ts,tz,pick(LEAF));
  colliders.push({x:tx,z:tz,w:1,d:1});
 }
@@ -658,7 +658,7 @@ $('gps').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation
 function gps(){const k=$('gps').width/300;gx.setTransform(k,0,0,k,0,0);const w=300,c=150,S=gBig?1.1:1.6,P=pos();gx.fillStyle='#161a1f';gx.fillRect(0,0,w,w);gx.textAlign='center';
  if(inside){gx.fillStyle='#fff';gx.font='bold 20px sans-serif';gx.fillText(inside==='hq'?'CENTRAL':'NO PRÉDIO',c,c);return}
  const X=x=>c+(x-P.x)*S,Y=z=>c+(z-P.z)*S;
- gx.fillStyle='#2c3138';for(let i=-GN;i<=GN;i++)for(let j=-GN;j<=GN;j++)gx.fillRect(X(i*32-12),Y(j*32-12),24*S,24*S);
+ gx.fillStyle='#2c3138';for(let i=-GN;i<=GN;i++)for(let j=-GN;j<=GN;j++)gx.fillRect(X(i*32-10),Y(j*32-10),20*S,20*S);
  gx.fillStyle='#5b636e';BLD.forEach(b=>gx.fillRect(X(b.x-b.w/2),Y(b.z-b.d/2),b.w*S,b.d*S));
  gx.fillStyle='#e0cf8a';BKS.forEach(b=>gx.fillRect(X(b.x-8),Y(b.z-7),16*S,14*S));
  LMS.forEach(l=>{gx.fillStyle='#'+l.c.toString(16).padStart(6,'0');gx.fillRect(X(l.x-9),Y(l.z-7),18*S,14*S)});
@@ -740,6 +740,27 @@ function toggleCover(){if(driving||riding||editApp||rollEnd>time)return;if(cov){
 function startRoll(){if(driving||riding||editApp||time<rollCd||rollEnd>time)return;const l=Math.hypot(lastMX,lastMZ)||1;rollDX=lastMX/l;rollDZ=lastMZ/l;rollEnd=time+.55;rollCd=time+1.3;cov=null;crouch=false;aim=false;$('aimb').style.background='#6e7681'}
 const shielded=(sx,sz)=>{if(!cov||driving||riding)return false;const P=player.position,dx=sx-P.x,dz=sz-P.z,l=Math.hypot(dx,dz)||1;return(-cov.nx*dx-cov.nz*dz)/l>.25&&!(cov.low&&aimOn)&&!(!cov.low&&aimOn&&Math.abs(leanOff)>.4)};
 {const mk=(id,tx,bg,f)=>{const b=document.createElement('button');b.className='btn';b.id=id;b.textContent=tx;b.style.background=bg;b.addEventListener('pointerdown',e=>{e.preventDefault();f()});$('acts').appendChild(b)};mk('rollb','ROLAR','#2f6f9f',startRoll);mk('covb','COBERT.','#7a5a2a',toggleCover)}
+const TRF=[],LANE=[[0,3],[-3,0],[0,-3],[3,0]],TANG=[Math.PI/2,0,-Math.PI/2,Math.PI],TV=[[1,0],[0,1],[-1,0],[0,-1]];
+function mkTraffic(){const cols=[0xc0392b,0x2c6fbb,0xe0b400,0x2e7d4f,0x777777,0xeeeeee,0x6a4a7a,0xd9772b];
+ for(let i=0;i<16;i++){const c=buildCar(pick(cols),false),hz=Math.random()<.5,rc=(Math.floor(Math.random()*14)-7)*32+16,a=(Math.random()-.5)*400,s=Math.random()<.5?1:-1,dir=hz?(s>0?0:2):(s>0?1:3),L=LANE[dir];
+  const o={id:i,g:c.g,dir,mx:hz?a:rc,mz:hz?rc:a,lo:[L[0],L[1]],sp:0,vm:7+Math.random()*4,stall:0,hold:0,bump:0};
+  o.g.position.set(o.mx+L[0],0,o.mz+L[1]);o.g.rotation.y=TANG[dir];scene.add(o.g);TRF.push(o)}}
+function updTraffic(dt){if(inside)return;const P=pos();
+ for(const o of TRF){const d=TV[o.dir],p=o.g.position;let stop=false;
+  const chk=(x,z,pri)=>{const dx=x-p.x,dz=z-p.z,f=dx*d[0]+dz*d[1],l=Math.abs(-dx*d[1]+dz*d[0]);if(f>0&&f<(pri?9:6)&&l<(pri?2.6:3.4))stop=true};
+  chk(P.x,P.z,true);if(!driving)chk(car.g.position.x,car.g.position.z,true);
+  for(const q of TRF)if(q!==o){if(q.dir===o.dir)chk(q.g.position.x,q.g.position.z,true);else if(q.id<o.id)chk(q.g.position.x,q.g.position.z,false)}
+  if(o.stall>0)o.stall-=dt;
+  if(stop&&o.stall<=0){o.sp=Math.max(0,o.sp-18*dt);if(o.sp===0){o.hold+=dt;if(o.hold>5){o.stall=2.5;o.hold=0}}}else{o.sp=Math.min(o.vm,o.sp+5*dt);o.hold=0}
+  const ox=o.mx,oz=o.mz;o.mx+=d[0]*o.sp*dt;o.mz+=d[1]*o.sp*dt;
+  const h=o.dir%2===0,a0=h?ox:oz,a1=h?o.mx:o.mz,s=h?d[0]:d[1],k0=Math.floor((a0-16)/32),k1=Math.floor((a1-16)/32);
+  if(k0!==k1){const c=(s>0?k1:k0)*32+16;if(h)o.mx=c;else o.mz=c;
+   const ok=[o.dir,o.dir,o.dir,(o.dir+1)%4,(o.dir+3)%4].filter(e=>{const v=TV[e],cc=v[0]?o.mx:o.mz,sg=v[0]||v[1];return !(Math.abs(cc)>200&&Math.sign(cc)===sg)});
+   o.dir=ok[Math.floor(Math.random()*ok.length)]}
+  const L=LANE[o.dir],k=Math.min(1,dt*4);o.lo[0]+=(L[0]-o.lo[0])*k;o.lo[1]+=(L[1]-o.lo[1])*k;
+  p.set(o.mx+o.lo[0],0,o.mz+o.lo[1]);o.g.rotation.y+=wrapA(TANG[o.dir]-o.g.rotation.y)*Math.min(1,dt*5);
+  if(driving&&carHp>0){const dx=p.x-car.g.position.x,dz=p.z-car.g.position.z;if(dx*dx+dz*dz<9&&time>o.bump){o.bump=time+1;const sv=Math.abs(cs);if(sv>5){carDamage(Math.min(10,sv*.45));msg('Colisão com o trânsito!',900)}cs=-cs*.35;o.sp=0}}}}
+mkTraffic();
 // IA: criminosos procuram objeto entre eles e o jogador, correm até lá, ficam agachados e espiam por cima (baixo) ou pela lateral (alto) para atirar
 function findCover(p,P){let best=null,bd=1e9;
  for(const b of cellsNear(p.x,p.z)){if(!(b.h!=null||Math.max(b.w,b.d)>=1.6))continue;const lx=b.x-P.x,lz=b.z-P.z,l=Math.hypot(lx,lz)||1,ux=lx/l,uz=lz/l,k=Math.min((b.w/2+.9)/(Math.abs(ux)||1e-3),(b.d/2+.9)/(Math.abs(uz)||1e-3)),qx=b.x+ux*k,qz=b.z+uz*k,d=Math.hypot(qx-p.x,qz-p.z);
@@ -845,7 +866,7 @@ function loop(){
  if(n.bar){n.bar.visible=en;if(en){const p=n.mesh.position,r=Math.max(.001,(n.hp==null?100:n.hp)/100),f=n.bar.userData.f;n.bar.position.set(p.x,n.mesh.scale.y*2.7+p.y,p.z);n.bar.quaternion.copy(camera.quaternion);f.scale.x=r;f.position.x=-.5*(1-r)}}}
  camUpdate(dt,P);if(aimOn&&(fc&3)===0)$('xh').style.borderColor=aimShot().tgt?'#ff5a5a':'#ffffffcc';
  sun.position.set(P.x+35,70,P.z+25);sun.target.position.set(P.x,0,P.z);
- gps();ctxUpdate();sendPres();updCarFx();renderer.render(scene,camera);
+ gps();ctxUpdate();sendPres();updCarFx();updTraffic(dt);renderer.render(scene,camera);
 }
 // ---------- Conta, social e multiplayer (servidor próprio) ----------
 let aim=false,nick='',myKey='',friends=[],roomCode='',roomMembers=[],remotes={},playing=false,offline=false,lastPres=0,ws=null,authRes=null,reconT=null,noRecon=false,token=null,entering=false;
