@@ -9,7 +9,7 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'users.json');
 const MAX_USERS = +process.env.MAX_USERS || 5000;
 const NICK = /^[A-Za-z0-9_]{3,12}$/, MAXMSG = 8192, MAXROOM = 4, SESSION_MS = 30 * 864e5;
-const LOOK_MAX = { skin: 8, hair: 5, hc: 8, glasses: 4, must: 3, beard: 4, fc: 8 };
+const LOOK_MAX = { skin: 8, hair: 7, hc: 8, glasses: 4, must: 3, beard: 4, fc: 8, sex: 2 };
 function cleanLook(l) {
   const o = {}; l = l && typeof l === 'object' ? l : {};
   for (const k in LOOK_MAX) { const v = Math.floor(+l[k]); o[k] = v >= 0 && v < LOOK_MAX[k] ? v : (k === 'skin' ? 2 : 0); }
@@ -365,7 +365,7 @@ function handle(c, m) {
       const r = rooms.get(c.room); if (!r) return;
       const tr = m.tr && typeof m.tr === 'object' ? m.tr : {};
       const out = { t: 'arr', by: u.nick, o: ['r', 'k', 's'].includes(m.o) ? m.o : 's', tr: { cor: String(tr.cor || '').slice(0, 12), bone: !!tr.bone, mochila: !!tr.mochila, altura: String(tr.altura || '').slice(0, 8) },
-        pa: int(m.pa, 0, 0xffffff), sk: int(m.sk, 0, 0xffffff), hc: int(m.hc, 0, 0xffffff), x: +num(m.x, -2000, 2000).toFixed(1), z: +num(m.z, -2000, 2000).toFixed(1) };
+        pa: int(m.pa, 0, 0xffffff), sk: int(m.sk, 0, 0xffffff), hc: int(m.hc, 0, 0xffffff), lk: Array.isArray(m.lk) ? m.lk.slice(0, 8).map(v => int(v, 0, 9)) : null, x: +num(m.x, -2000, 2000).toFixed(1), z: +num(m.z, -2000, 2000).toFixed(1) };
       for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
       break;
     }

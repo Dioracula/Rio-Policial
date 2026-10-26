@@ -325,6 +325,7 @@ function arrRemote(m){const flag=m.o==='r'?'robber':m.o==='k'?'kid':'isSuspect',
  if(!n)n=spawnNPC([x,z],{[flag]:true,hold:true});
  const tr=m.tr||{},ci=v=>Math.max(0,Math.min(16777215,+v||0));
  n.traits={cor:COLORS[tr.cor]!==undefined?tr.cor:'preta',bone:!!tr.bone,mochila:!!tr.mochila,altura:HS[tr.altura]?tr.altura:'médio'};n.pants=ci(m.pa);n.skin=ci(m.sk);n.hatC=ci(m.hc);
+ if(Array.isArray(m.lk))n.look=cleanLook({sex:m.lk[0],skin:m.lk[1],hair:m.lk[2],hc:m.lk[3],glasses:m.lk[4],must:m.lk[5],beard:m.lk[6],fc:m.lk[7]});
  model(n);n.mesh.position.set(x,0,z);if(n.grab)release(n,true);n.t0=performance.now();n.arrested=true;n.parts.sm.color.set(0x777777);n.custody=true;n.remoteBy=String(m.by||'').toLowerCase();n.hold=true;n.down=0}
 function carDamage(d){if(d<=0)return;const was=carHp;carHp=Math.max(0,carHp-d);
  if(carHp<=0&&was>0)msg('Viatura DESTRUÍDA! Travou no lugar. Chame o reboque (R$ '+TOW_COST+')',4000);
@@ -340,27 +341,32 @@ function cycleWeapon(){const l=own.slice().sort((a,b)=>a-b);equip(l[(l.indexOf(e
 // ---------- Aparência do personagem (pele, cabelo, óculos, bigode, barba) ----------
 const SKINS=[0xf6d5bd,0xf1c9a5,0xe0b090,0xd9a27a,0xb98560,0xa97550,0x7a5236,0x4b3022],
  HAIRC=[0x1b1b1b,0x4a3020,0x7a5230,0xd8b45a,0xa8441f,0x9a9a9a,0xeeeeee,0x2b5fcc],
- HAIRN=['Sem cabelo','Curto','Médio','Longo','Cacheado'],GLN=['Nenhum','Redondo','Quadrado','Escuro'],MUN=['Nenhum','Fino','Grosso'],BEN=['Nenhuma','Cavanhaque','Curta','Cheia'],
- LOOKMAX={skin:8,hair:5,hc:8,glasses:4,must:3,beard:4,fc:8};
+ HAIRN=['Sem cabelo','Curto','Médio','Longo','Cacheado','Rabo de cavalo','Coque'],GLN=['Nenhum','Redondo','Quadrado','Escuro'],MUN=['Nenhum','Fino','Grosso'],BEN=['Nenhuma','Cavanhaque','Curta','Cheia'],
+ LOOKMAX={skin:8,hair:7,hc:8,glasses:4,must:3,beard:4,fc:8,sex:2};
 function cleanLook(l){const o={};l=l&&typeof l==='object'?l:{};for(const k in LOOKMAX){const v=Math.floor(+l[k]);o[k]=v>=0&&v<LOOKMAX[k]?v:(k==='skin'?2:0)}return o}
 let myLook=cleanLook(ls('pc_look'));
 function applyLook(av,L){
- L=cleanLook(L);
+ L=cleanLook(L);if(L.sex===1){L.must=0;L.beard=0}
  if(av.lg){av.g.remove(av.lg);av.lg.traverse(o=>{if(o.geometry)o.geometry.dispose()})}
  if(av.hands)av.hands.forEach(h=>{if(h.parent)h.parent.remove(h);h.geometry.dispose()});
  const P=av.parts,lg=new THREE.Group(),PI=Math.PI,M=c=>new THREE.MeshLambertMaterial({color:c}),D=c=>new THREE.MeshLambertMaterial({color:c,side:THREE.DoubleSide});
  av.lg=lg;av.g.add(lg);
+ const fem=L.sex===1;av.g.children[0].scale.x=fem?.86:1;
+ if(fem){const hp=new THREE.Mesh(new THREE.BoxGeometry(.62,.3,.38),new THREE.MeshLambertMaterial({color:P.legL.children[0].material.color.getHex()}));hp.position.set(0,.98,0);lg.add(hp)}
  const skin=SKINS[L.skin];P.head.material.color.setHex(skin);
  const bx=(w,h,d,m,x,y,z)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);lg.add(o);return o};
  const sh=(r,y,z,phs,phl,ts,tl,m)=>{const o=new THREE.Mesh(new THREE.SphereGeometry(r,16,12,phs,phl,ts,tl),m);o.position.set(0,y,z);lg.add(o);return o};
  av.hands=[P.armL,P.armR].map(a=>{const h=new THREE.Mesh(new THREE.BoxGeometry(.19,.16,.21),M(skin));h.position.y=-.82;a.add(h);return h});
  const ey=M(0x151515);bx(.045,.05,.03,ey,-.09,2.04,.243);bx(.045,.05,.03,ey,.09,2.04,.243);bx(.05,.07,.05,M(skin),0,1.975,.262);
+ if(fem){bx(.1,.03,.03,M(0xc0405a),0,1.915,.256);bx(.06,.014,.02,ey,-.09,2.08,.244);bx(.06,.014,.02,ey,.09,2.08,.244)}
  // cabelo: aparece embaixo do chapéu, nas laterais e atrás (a frente do rosto fica livre)
  const hm=D(HAIRC[L.hc]),ps=PI/2+.75,pl2=2*PI-1.5;
  if(L.hair===1)sh(.285,2,-.01,ps,pl2,0,1.55,hm);
  else if(L.hair===2)sh(.29,2,-.015,ps,pl2,0,1.85,hm);
  else if(L.hair===3){sh(.29,1.99,-.02,ps,pl2,0,1.95,hm);bx(.52,.62,.13,hm,0,1.72,-.205)}
  else if(L.hair===4)sh(.34,2.04,-.02,PI/2+.55,2*PI-1.1,.85,1.35,hm);
+ else if(L.hair===5){sh(.285,2,-.01,ps,pl2,0,1.55,hm);bx(.15,.55,.15,hm,0,1.8,-.34)}
+ else if(L.hair===6){sh(.285,2,-.01,ps,pl2,0,1.55,hm);sh(.16,2.28,-.1,0,2*PI,0,PI,hm)}
  if(L.glasses){const gm=M(0x111111),dk=M(0x0a0a0a),lens=new THREE.MeshBasicMaterial({color:0x9fd0ff,transparent:true,opacity:.28,side:THREE.DoubleSide});
   for(const sd of[-1,1]){const cx=sd*.1;
    if(L.glasses===1){const t=new THREE.Mesh(new THREE.TorusGeometry(.07,.014,6,16),gm);t.position.set(cx,2.04,.25);lg.add(t);const c=new THREE.Mesh(new THREE.CircleGeometry(.066,14),lens);c.position.set(cx,2.04,.249);lg.add(c)}
@@ -407,9 +413,16 @@ function repairCar(){const need=100-carHp;if(need<.5)return;const cost=Math.ceil
 
 const npcs=[];
 function freePos(r){let x,z,t=0;do{x=(Math.random()-.5)*480;z=(Math.random()-.5)*480;t++}while(collides(x,z,r)&&t<60);return[x,z]}
+function randLook(){const sex=Math.random()<.5?1:0,r=k=>Math.floor(Math.random()*LOOKMAX[k]),pk=a=>a[Math.floor(Math.random()*a.length)],hc=r('hc');
+ return{sex,skin:r('skin'),hair:sex?pk([1,2,3,3,4,5,6]):pk([0,1,1,2,4,5]),hc,glasses:Math.random()<.25?1+Math.floor(Math.random()*3):0,must:!sex&&Math.random()<.22?1+Math.floor(Math.random()*2):0,beard:!sex&&Math.random()<.18?1+Math.floor(Math.random()*3):0,fc:hc}}
+function lookNPC(n){n.lk={g:n.mesh,parts:n.parts};applyLook(n.lk,n.look)}
+function stripLook(n){const a=n.lk;n.lk=null;if(!a||!a.lg)return;a.g.remove(a.lg);a.lg.traverse(o=>{if(o.geometry)o.geometry.dispose()});if(a.hands)a.hands.forEach(h=>{if(h.parent)h.parent.remove(h);h.geometry.dispose()})}
 function model(n){
- const t=n.traits,r=buildPerson({shirt:COLORS[t.cor],pants:n.pants,skin:n.skin,hat:t.bone,hatColor:n.hatC,pack:t.mochila,scale:HS[t.altura]});
+ const t=n.traits;if(!n.look)n.look=randLook();n.skin=SKINS[n.look.skin];
+ const r=buildPerson({shirt:COLORS[t.cor],pants:n.pants,skin:n.skin,hat:t.bone,hatColor:n.hatC,pack:t.mochila,scale:HS[t.altura]});
+ if(n.lk)stripLook(n);
  if(n.mesh){r.g.position.copy(n.mesh.position);scene.remove(n.mesh)}
+ r.g.children[0].scale.x=n.look.sex?.86:1;
  n.mesh=r.g;n.parts=r.parts;scene.add(n.mesh)}
 function spawnNPC(pos,ex){
  const[x,z]=pos||freePos(1.5);
@@ -441,7 +454,7 @@ function endMission(win,text,pts=0){if(mDone)return;mDone=true;pts*=mStars;addPt
 function neutralize(n,kind,dl){
  n.t0=performance.now();if(n.grab)release(n,true);
  if(kind==='arrest'){n.arrested=true;n.parts.sm.color.set(0x777777)}else{n.dead=true;n.mesh.rotation.z=Math.PI/2;n.mesh.position.y=.35}
- if(kind==='arrest'&&!dl&&(n.isSuspect||n.robber||n.kid)){n.custody=true;n.remoteBy=null;send({t:'arr',o:n.robber?'r':n.kid?'k':'s',tr:n.traits,pa:n.pants,sk:n.skin,hc:n.hatC,x:+n.mesh.position.x.toFixed(1),z:+n.mesh.position.z.toFixed(1)});msg('Preso! Leve-o até a delegacia (siga o GPS)',3000);hud();return}
+ if(kind==='arrest'&&!dl&&(n.isSuspect||n.robber||n.kid)){n.custody=true;n.remoteBy=null;send({t:'arr',o:n.robber?'r':n.kid?'k':'s',tr:n.traits,pa:n.pants,sk:n.skin,hc:n.hatC,lk:n.look?[n.look.sex,n.look.skin,n.look.hair,n.look.hc,n.look.glasses,n.look.must,n.look.beard,n.look.fc]:null,x:+n.mesh.position.x.toFixed(1),z:+n.mesh.position.z.toFixed(1)});msg('Preso! Leve-o até a delegacia (siga o GPS)',3000);hud();return}
  if(n.hostage)endMission(false,'O refém morreu! Missão fracassada');else if(n.isSuspect)endMission(true,kind==='arrest'?'Suspeito preso! +15 pontos':'Suspeito neutralizado. +8 pontos',kind==='arrest'?15:8);
  else if(n.robber){addPts(kind==='arrest'?5:3);msg(kind==='arrest'?'Criminoso preso! +5':'Criminoso abatido! +3',1500);
   if(!mDone&&robbers.every(r=>r.dead||r.delivered)){const b=30+Math.round(timeLeft/4);endMission(true,`Assalto contido! +${b} pontos`,b)}}
@@ -463,7 +476,7 @@ function killCiv(n){const c=n.grab;n.grab=null;c.dead=true;c.t0=performance.now(
 function hitNPC(n,part,dm){dm=dm||1;
  if(n.hostage||!(n.robber||n.kid||n.isSuspect)){neutralize(n,'kill');return}
  if(mtype==='invest'&&crime==='tráfico de drogas'&&n===suspect&&!n.underFire){msg('Não atire! Prenda o suspeito — a menos que ele atire em vocês primeiro',2400);return}
- if(!n.react)setReact(n);n.revealed=true;if(n.dodge>time&&Math.random()<.4){msg('Ele desviou do tiro!',900);return}if(n.cs==='hide'&&Math.random()<.8){msg('Ele está protegido pela cobertura!',700);return}
+ if(!n.react)setReact(n);n.revealed=true;if(n.dodge>time&&Math.random()<.4){msg('Ele desviou do tiro!',900);return}if(coverProt(n)&&Math.random()<.8){msg('Ele está protegido pela cobertura!',700);return}
  if(n.hp==null)n.hp=100;
  if(part==='h'){n.hp=0;addPts(3);msg('HEADSHOT! +3',1200)}
  else if(part==='a'){n.hp-=15*dm;if(n.grab)release(n,true);if(n.armed){n.armed=false;dropGun(n);msg('Arma derrubada!',1200)}}
@@ -732,7 +745,7 @@ function camUpdate(dt,P){
  if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*(1-Math.exp(-9*dt));camera.updateProjectionMatrix()}
  car.g.visible=!(riding&&aimOn);if(!driving&&!riding)player.visible=camD>1.1}
 let ph=0,time=0;const clock=new THREE.Clock(),B=262;
-let crouch=false,cov=null,rollEnd=0,rollCd=0,rollDX=0,rollDZ=1,lastMX=0,lastMZ=1,leanOff=0,blindOff=0,rollWas=false;player.rotation.order='YXZ';let crC=0;const vOff={y:0,z:0};
+let crouch=false,cov=null,rollEnd=0,rollCd=0,rollDX=0,rollDZ=1,lastMX=0,lastMZ=1,leanOff=0,blindOff=0,rollWas=false;player.rotation.order='YXZ';let crC=0,plMove=false;const vOff={y:0,z:0};
 const aabbD=(b,x,z)=>Math.hypot(Math.max(Math.abs(x-b.x)-b.w/2,0),Math.max(Math.abs(z-b.z)-b.d/2,0));
 function tryCover(rad=1.7){const p=player.position;let b=null,bd=rad;for(const q of cellOf(p.x,p.z)){if(!(q.h!=null||Math.max(q.w,q.d)>=1.6))continue;const d=aabbD(q,p.x,p.z);if(d<bd){bd=d;b=q}}
  if(!b)return false;const ox=p.x-b.x,oz=p.z-b.z,rx=Math.abs(ox)-b.w/2,rz=Math.abs(oz)-b.d/2;cov={c:b,nx:rx>rz?(Math.sign(ox)||1):0,nz:rx>rz?0:(Math.sign(oz)||1),low:b.h!=null&&b.h<1.5};leanOff=0;return true}
@@ -749,6 +762,7 @@ function updTraffic(dt){if(inside)return;const P=pos();
  for(const o of TRF){const d=TV[o.dir],p=o.g.position;let stop=false;
   const chk=(x,z,pri)=>{const dx=x-p.x,dz=z-p.z,f=dx*d[0]+dz*d[1],l=Math.abs(-dx*d[1]+dz*d[0]);if(f>0&&f<(pri?9:6)&&l<(pri?2.6:3.4))stop=true};
   chk(P.x,P.z,true);if(!driving)chk(car.g.position.x,car.g.position.z,true);
+  if(Math.hypot(p.x-P.x,p.z-P.z)<90)for(const n of npcs){if(n.dead||n.boarded||n.custody)continue;const q=n.mesh.position;if(Math.abs(q.x-p.x)<12&&Math.abs(q.z-p.z)<12)chk(q.x,q.z,true)}
   for(const q of TRF)if(q!==o){if(q.dir===o.dir)chk(q.g.position.x,q.g.position.z,true);else if(q.id<o.id)chk(q.g.position.x,q.g.position.z,false)}
   if(o.stall>0)o.stall-=dt;
   if(stop&&o.stall<=0){o.sp=Math.max(0,o.sp-18*dt);if(o.sp===0){o.hold+=dt;if(o.hold>5){o.stall=2.5;o.hold=0}}}else{o.sp=Math.min(o.vm,o.sp+5*dt);o.hold=0}
@@ -759,19 +773,35 @@ function updTraffic(dt){if(inside)return;const P=pos();
    o.dir=ok[Math.floor(Math.random()*ok.length)]}
   const L=LANE[o.dir],k=Math.min(1,dt*4);o.lo[0]+=(L[0]-o.lo[0])*k;o.lo[1]+=(L[1]-o.lo[1])*k;
   p.set(o.mx+o.lo[0],0,o.mz+o.lo[1]);o.g.rotation.y+=wrapA(TANG[o.dir]-o.g.rotation.y)*Math.min(1,dt*5);
+  if(!driving&&!riding){const pp=player.position,b=boxPush(o.g,pp.x,pp.z,.5);if(b){pp.x+=b.x;pp.z+=b.z;if(o.sp>3.5&&time>plHit){plHit=time+1.2;hurt(12);msg('Atropelado!',900);o.sp=0}}}
+  for(const n of npcs){if(n.dead||n.boarded||n.custody)continue;const q=n.mesh.position;if(Math.abs(q.x-p.x)>4||Math.abs(q.z-p.z)>4)continue;const b=boxPush(o.g,q.x,q.z,.5);if(b){q.x+=b.x;q.z+=b.z;if(o.sp>3.5){n.down=Math.max(n.down||0,2.5);o.sp=Math.min(o.sp,1)}}}
   if(driving&&carHp>0){const dx=p.x-car.g.position.x,dz=p.z-car.g.position.z;if(dx*dx+dz*dz<9&&time>o.bump){o.bump=time+1;const sv=Math.abs(cs);if(sv>5){carDamage(Math.min(10,sv*.45));msg('Colisão com o trânsito!',900)}cs=-cs*.35;o.sp=0}}}}
+let plHit=0;
+// caixa orientada do carro (4,4 x 2 m): empurra quem estiver dentro para fora
+function boxPush(g,x,z,r){const y=g.rotation.y,s=Math.sin(y),c=Math.cos(y),dx=x-g.position.x,dz=z-g.position.z,al=dx*s+dz*c,la=dx*c-dz*s,hl=2.2+r,hw=1+r;if(Math.abs(al)>=hl||Math.abs(la)>=hw)return null;
+ const pa=hl-Math.abs(al),pw=hw-Math.abs(la);if(pw<pa){const k=(la<0?-1:1)*pw;return{x:c*k,z:-s*k}}const k=(al<0?-1:1)*pa;return{x:s*k,z:c*k}}
+// viatura: sólida para quem anda a pé; em movimento, derruba e atropela
+function carVsPeds(){if(inside||carHp<=0)return;const g=car.g,mv=driving&&Math.abs(cs)>2.5;
+ if(!driving&&!riding){const pp=player.position,b=boxPush(g,pp.x,pp.z,.5);if(b){pp.x+=b.x;pp.z+=b.z}}
+ for(const n of npcs){if(n.dead||n.boarded||n.custody||n.arrested)continue;const q=n.mesh.position;if(Math.abs(q.x-g.position.x)>4||Math.abs(q.z-g.position.z)>4)continue;const b=boxPush(g,q.x,q.z,.5);if(!b)continue;q.x+=b.x;q.z+=b.z;
+  if(mv&&time>(n.runT||0)){n.runT=time+2;n.down=Math.max(n.down||0,3);cs*=.75;
+   if(n.robber||n.kid||n.isSuspect){n.revealed=true;n.hp=(n.hp==null?100:n.hp)-25;if(n.hp<=0)neutralize(n,'arrest')}
+   else if(!n.hostage&&!n.cop&&!n.victim){score-=10;msg('Você atropelou um civil! -10 pontos',1800);hud()}}}}
 mkTraffic();
 // IA: criminosos procuram objeto entre eles e o jogador, correm até lá, ficam agachados e espiam por cima (baixo) ou pela lateral (alto) para atirar
 // Agachar: coxas à frente e joelhos dobrados, corpo desce e recua. Rolar: encolhe, dobra pernas/braços e gira em torno do centro do corpo (sem afundar no chão)
 function bodyPose(){const P=pl.parts,rolling=rollEnd>time;let rx=0,sc=1,oy=-.41*crC,oz=-.447*crC,tk=0;
- if(rolling){const u=1-(rollEnd-time)/.55;tk=Math.max(0,Math.min(1,u/.18,(1-u)/.18));rx=Math.max(0,Math.min(1,(u-.18)/.64))*Math.PI*2;sc=1-.4*tk;oy=sc*(1-Math.cos(rx))+.12*tk;oz=-sc*Math.sin(rx)}
+ if(rolling){const u=1-(rollEnd-time)/.55;tk=Math.max(0,Math.min(1,u/.18,(1-u)/.18));rx=Math.max(0,Math.min(1,(u-.18)/.64))*Math.PI*2;sc=1;oy=(1-Math.cos(rx))+.25*tk;oz=-Math.sin(rx)}
  player.rotation.x=rx;player.scale.setScalar(sc);vOff.y=oy;vOff.z=oz;
  const f=Math.max(crC,tk);for(const L of[P.legL,P.legR]){L.rotation.x=(rolling?-1.6:-1.45)*f+L.rotation.x*(1-f);L.knee.rotation.x=(rolling?2.2:1.45)*f}
+ if(crC>.2&&plMove&&!rolling){const s=Math.sin(ph)*.5*crC;P.legL.rotation.x+=s;P.legR.rotation.x-=s;P.legL.knee.rotation.x+=Math.max(0,-s)*1.2;P.legR.knee.rotation.x+=Math.max(0,s)*1.2}
  P.armL.rotation.x=(rolling?-2:-.7)*f+P.armL.rotation.x*(1-f);if(rolling)P.armR.rotation.x=-2*tk+P.armR.rotation.x*(1-tk)}
+function coverProt(n){const q=n.cv;if(n.cs!=='hide'||!q)return false;const p=n.mesh.position,P=player.position;if(Math.hypot(q.x-p.x,q.z-p.z)>1.4)return false;
+ const ox=q.cx-p.x,oz=q.cz-p.z,sx=P.x-p.x,sz=P.z-p.z,lo=Math.hypot(ox,oz)||1,ls=Math.hypot(sx,sz)||1;return(ox*sx+oz*sz)/(lo*ls)>.3}
 function findCover(p,P){let best=null,bd=1e9;
  for(const b of cellsNear(p.x,p.z)){if(!(b.h!=null||Math.max(b.w,b.d)>=1.6))continue;const lx=b.x-P.x,lz=b.z-P.z,l=Math.hypot(lx,lz)||1,ux=lx/l,uz=lz/l,k=Math.min((b.w/2+.9)/(Math.abs(ux)||1e-3),(b.d/2+.9)/(Math.abs(uz)||1e-3)),qx=b.x+ux*k,qz=b.z+uz*k,d=Math.hypot(qx-p.x,qz-p.z);
   if(d>14||d>=bd||collides(qx,qz,.5))continue;let hit=false;for(let s=.15;s<1;s+=.17){const x=p.x+(qx-p.x)*s,z=p.z+(qz-p.z)*s;if(Math.abs(x-b.x)<b.w/2&&Math.abs(z-b.z)<b.d/2){hit=true;break}}if(hit)continue;
-  bd=d;best={x:qx,z:qz,low:b.h!=null&&b.h<1.5,ox:-uz,oz:ux}}
+  bd=d;best={x:qx,z:qz,low:b.h!=null&&b.h<1.5,ox:-uz,oz:ux,cx:b.x,cz:b.z}}
  if(best&&!best.low){let pp=null;for(const sg of[1,-1]){const x=best.x+best.ox*sg*2.6,z=best.z+best.oz*sg*2.6;if(!collides(x,z,.5)){pp={x,z};break}}if(!pp)return null;best.pp=pp}
  return best}
 function coverAI(n,p,P,dp,dt){if(n.grab||n.down>0)return -1;if(n.sy0==null)n.sy0=n.mesh.scale.y;
@@ -824,7 +854,7 @@ function loop(){
   crC+=(((crouch||cov)&&!aimOn&&!rolling?1:0)-crC)*Math.min(1,dt*12);
   const cb=$('covb');if(cb)cb.textContent=cov?'SAIR':crouch?'LEVANTAR':'COBERT.'}
  if(aimOn){let d=camYaw-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*16)}
- walk(pl.parts,ph,moving&&!driving);if(swingT>0)swingT=Math.max(0,swingT-dt);poseArm(pl,aimOn,swingT);bodyPose();
+ plMove=moving&&!driving;walk(pl.parts,ph,plMove);if(swingT>0)swingT=Math.max(0,swingT-dt);poseArm(pl,aimOn,swingT);bodyPose();
  if(riding){const so=SEAT_OFF[riding]||SEAT_OFF[1],cy=car.g.rotation.y;
   player.position.set(car.g.position.x+so.x*Math.cos(cy)+so.z*Math.sin(cy),0,car.g.position.z-so.x*Math.sin(cy)+so.z*Math.cos(cy))}
  const P=pos();
@@ -845,10 +875,11 @@ function loop(){
   continue}
  if(n.dead||n.arrested||n.boarded)continue;const p=n.mesh.position;
   let sp=1.4;const dp=Math.hypot(p.x-P.x,p.z-P.z),esc=n.robber&&phase==='escape'&&!mDone;
+  if(dp<40){if(!n.lk)lookNPC(n)}else if(dp>70&&n.lk)stripLook(n);
   const crim=n.robber||n.kid||n.isSuspect;
   if(crim&&!esc){if(!n.react&&dp<9)setReact(n);if(n.react&&time-lastFireT<.7&&dp<45&&!(n.dodge>time)){n.dodge=time+.7;n.dodgeDir=Math.random()<.5?1:-1}}
   if(n.down>0){n.down-=dt;n.mesh.position.y=n.down>0?-.6:0;if(dp<nd&&!driving&&!riding&&!n.cop){nd=dp;near=n}continue}
-  const cvSp=(crim&&n.armed&&!esc&&dp<30&&(n.react==='fight'||n.underFire))?coverAI(n,p,P,dp,dt):-1;if(cvSp<0&&n.sy0!=null&&n.mesh.scale.y!==n.sy0)n.mesh.scale.y=n.sy0;
+  const cvSp=(crim&&n.armed&&!esc&&dp<30&&(n.react==='fight'||n.underFire))?coverAI(n,p,P,dp,dt):-1;if(cvSp<0){if(n.sy0!=null&&n.mesh.scale.y!==n.sy0)n.mesh.scale.y=n.sy0;if(n.cs){n.cs=null;n.cv=null}}
   if(cvSp>=0)sp=cvSp;
   else if(n.armed&&!esc&&dp<(n.robber||n.kid?26:15)&&!blocked(p.x,p.z,P.x,P.z)){sp=0;n.mesh.rotation.y=Math.atan2(P.x-p.x,P.z-p.z);if(n.react&&n.dodge>time){const l=dp||1;sp=2.8;n.tgt.set(p.x-(P.z-p.z)/l*n.dodgeDir*4,0,p.z+(P.x-p.x)/l*n.dodgeDir*4);n.timer=.5}if(n.grab){n.grabT-=dt;const c=n.grab;if(c.dead)n.grab=null;else{c.mesh.position.set(p.x+Math.sin(n.mesh.rotation.y)*.9,0,p.z+Math.cos(n.mesh.rotation.y)*.9);if(n.grabT<=0)killCiv(n)}}else{if(!n.grabTried){n.grabTried=true;grab(n)}n.fireT-=dt;if(n.fireT<=0){n.fireT=1.2+Math.random()*.6;enemyFire(n)}}}
   else if(esc){n.tgt.copy(gcar.g.position);n.timer=9;sp=4.5;if(Math.hypot(p.x-gcar.g.position.x,p.z-gcar.g.position.z)<2.8){n.boarded=true;n.mesh.visible=false;continue}}
@@ -877,7 +908,7 @@ function loop(){
  if(n.bar){n.bar.visible=en;if(en){const p=n.mesh.position,r=Math.max(.001,(n.hp==null?100:n.hp)/100),f=n.bar.userData.f;n.bar.position.set(p.x,n.mesh.scale.y*2.7+p.y,p.z);n.bar.quaternion.copy(camera.quaternion);f.scale.x=r;f.position.x=-.5*(1-r)}}}
  camUpdate(dt,P);if(aimOn&&(fc&3)===0)$('xh').style.borderColor=aimShot().tgt?'#ff5a5a':'#ffffffcc';
  sun.position.set(P.x+35,70,P.z+25);sun.target.position.set(P.x,0,P.z);
- gps();ctxUpdate();sendPres();updCarFx();updTraffic(dt);{const yw=player.rotation.y,ox=Math.sin(yw)*vOff.z,oz=Math.cos(yw)*vOff.z,pp=player.position;pp.x+=ox;pp.y+=vOff.y;pp.z+=oz;renderer.render(scene,camera);pp.x-=ox;pp.y-=vOff.y;pp.z-=oz}
+ gps();ctxUpdate();sendPres();updCarFx();updTraffic(dt);carVsPeds();{const yw=player.rotation.y,ox=Math.sin(yw)*vOff.z,oz=Math.cos(yw)*vOff.z,pp=player.position;pp.x+=ox;pp.y+=vOff.y;pp.z+=oz;renderer.render(scene,camera);pp.x-=ox;pp.y-=vOff.y;pp.z-=oz}
 }
 // ---------- Conta, social e multiplayer (servidor próprio) ----------
 let aim=false,nick='',myKey='',friends=[],roomCode='',roomMembers=[],remotes={},playing=false,offline=false,lastPres=0,ws=null,authRes=null,reconT=null,noRecon=false,token=null,entering=false;
@@ -1073,13 +1104,12 @@ function openApp(){
  const sw=(a,arr,cur)=>arr.map((c,i)=>`<button class="sw${i===cur?' on':''}" data-a="${a}" data-n="${i}" style="background:${hx(c)}"></button>`).join('');
  const chips=(a,names,cur)=>names.map((t,i)=>`<button class="chip${i===cur?' on':''}" data-a="${a}" data-n="${i}">${t}</button>`).join('');
  $('mbox').innerHTML='<b style="font-size:16px">🎨 Editar aparência</b><div style="font-size:11px;color:#9fb0c3;margin-top:2px">Uniforme e chapéu de policial continuam. Arraste a tela para girar.</div>'+
+ '<div class="lbl">Gênero</div>'+chips('ap_sex',['Masculino','Feminino'],L.sex)+
  '<div class="lbl">Cor da pele</div>'+sw('ap_skin',SKINS,L.skin)+
  '<div class="lbl">Cabelo</div>'+chips('ap_hair',HAIRN,L.hair)+
  (L.hair?'<div class="lbl">Cor do cabelo</div>'+sw('ap_hc',HAIRC,L.hc):'')+
  '<div class="lbl">Óculos</div>'+chips('ap_gl',GLN,L.glasses)+
- '<div class="lbl">Bigode</div>'+chips('ap_mu',MUN,L.must)+
- '<div class="lbl">Barba</div>'+chips('ap_be',BEN,L.beard)+
- (L.must||L.beard?'<div class="lbl">Cor da barba/bigode</div>'+sw('ap_fc',HAIRC,L.fc):'')+
+ (L.sex?'':'<div class="lbl">Bigode</div>'+chips('ap_mu',MUN,L.must)+'<div class="lbl">Barba</div>'+chips('ap_be',BEN,L.beard)+(L.must||L.beard?'<div class="lbl">Cor da barba/bigode</div>'+sw('ap_fc',HAIRC,L.fc):''))+
  '<div class="lbl">Visão</div><button class="chip" data-a="ap_zoom">'+(edZoom?'🧍 Ver o corpo todo':'🔍 Zoom no rosto')+'</button><button class="chip" data-a="ap_rand">🎲 Aleatório</button><button class="chip" data-a="ap_reset">↺ Padrão</button>'+
  '<button data-a="ap_done" style="background:#2ea043;text-align:center;margin-top:14px">Pronto</button>';
  $('menu').style.display='flex';$('mbox').scrollTop=st}
@@ -1087,9 +1117,9 @@ function appAct(a,n){
  n=+n;
  if(a==='ap_done'){flushLook();$('menu').style.display='none';return}
  if(a==='ap_zoom'){edZoom=!edZoom;openApp();return}
- if(a==='ap_rand'){for(const k in LOOKMAX)myLook[k]=Math.floor(Math.random()*LOOKMAX[k])}
+ if(a==='ap_rand'){for(const k in LOOKMAX)myLook[k]=Math.floor(Math.random()*LOOKMAX[k]);if(myLook.sex){myLook.must=0;myLook.beard=0}}
  else if(a==='ap_reset')myLook=cleanLook(null);
- else{const k={ap_skin:'skin',ap_hair:'hair',ap_hc:'hc',ap_gl:'glasses',ap_mu:'must',ap_be:'beard',ap_fc:'fc'}[a];if(!k||!(n>=0&&n<LOOKMAX[k]))return;myLook[k]=n}
+ else{const k={ap_skin:'skin',ap_hair:'hair',ap_hc:'hc',ap_gl:'glasses',ap_mu:'must',ap_be:'beard',ap_fc:'fc',ap_sex:'sex'}[a];if(!k||!(n>=0&&n<LOOKMAX[k]))return;myLook[k]=n;if(k==='sex'&&n===1){myLook.must=0;myLook.beard=0}}
  applyLook(pl,myLook);lookChanged();openApp()}
 function socAct(a,n){
  if(a.slice(0,3)==='ap_')return appAct(a,n);
