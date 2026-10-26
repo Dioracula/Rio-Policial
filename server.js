@@ -108,7 +108,7 @@ function cleanSave(m) {
   const ammo = {}; if (m.ammo && typeof m.ammo === 'object') for (let i = 1; i < 10; i++) if (m.ammo[i] != null && own.includes(i)) ammo[i] = int(m.ammo[i], 0, 999);
   const vests = {}; if (m.vests && typeof m.vests === 'object') for (let i = 0; i < 10; i++) if (m.vests[i] != null) { const d = int(m.vests[i], 0, 999); if (d > 0) vests[i] = d; }
   const eq = int(m.eq, 0, 9), vo = Math.floor(+m.vestOn);
-  return { score: int(m.score, -1e9, 1e9), missionN: int(m.missionN, 0, 1e6), xp: int(m.xp, 0, 1e9), money: int(m.money, 0, 1e9), own, ammo, eq: own.includes(eq) ? eq : 0, vests, vestOn: vests[vo] != null ? vo : -1, carHp: int(m.carHp == null ? 100 : m.carHp, 0, 100) };
+  return { score: int(m.score, -1e9, 1e9), missionN: int(m.missionN, 0, 1e6), xp: int(m.xp, 0, 1e9), money: int(m.money, 0, 1e9), own, ammo, eq: own.includes(eq) ? eq : 0, vests, vestOn: vests[vo] != null ? vo : -1, carHp: int(m.carHp == null ? 100 : m.carHp, 0, 100), per: int(m.per, 0, 1e6), crm: int(m.crm, 0, 1e6) };
 }
 const hashPw = async (p, salt) => (await scrypt(p, salt, 64)).toString('hex');
 const safeEq = (a, b) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -390,7 +390,7 @@ function handle(c, m) {
     }
     case 'end': { // conclusão de missão (vitória/derrota) vale para todos na sala
       const r = rooms.get(c.room); if (!r) return;
-      const out = { t: 'end', text: String(m.text || '').slice(0, 140), pts: int(m.pts, -1000, 1000) };
+      const out = { t: 'end', text: String(m.text || '').slice(0, 140), pts: int(m.pts, -1000, 1000), w: m.w ? 1 : 0 };
       for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
       break;
     }
@@ -411,6 +411,12 @@ function handle(c, m) {
       const r = rooms.get(c.room); if (!r || m.k !== 'ref') return;
       const t = now(); if (t - (c.lastSvc || 0) < 5000) return; c.lastSvc = t;
       for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send({ t: 'svc', k: 'ref', by: u.nick }); }
+      break;
+    }
+    case 'pz': { // puzzle da cena do crime resolvido: a pista vale para todos na sala
+      const r = rooms.get(c.room); if (!r) return;
+      const out = { t: 'pz', i: int(m.i, -1, 7), u: String(m.u || '').slice(0, 5) };
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
       break;
     }
     case 'logout':
