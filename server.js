@@ -110,6 +110,9 @@ function cleanSave(m) {
   const eq = int(m.eq, 0, 9), vo = Math.floor(+m.vestOn);
   return { score: int(m.score, -1e9, 1e9), missionN: int(m.missionN, 0, 1e6), xp: int(m.xp, 0, 1e9), money: int(m.money, 0, 1e9), own, ammo, eq: own.includes(eq) ? eq : 0, vests, vestOn: vests[vo] != null ? vo : -1, carHp: int(m.carHp == null ? 100 : m.carHp, 0, 100), per: int(m.per, 0, 1e6), crm: int(m.crm, 0, 1e6) };
 }
+// Nível a partir do xp, mesma fórmula do cliente (usado para mostrar a patente dos amigos online)
+const xpFor = L => Math.round(18 * Math.pow(L - 1, 1.5));
+const lvlOf = x => { let L = 1; while (L < 100 && x >= xpFor(L + 1)) L++; return L; };
 const hashPw = async (p, salt) => (await scrypt(p, salt, 64)).toString('hex');
 const safeEq = (a, b) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 function hits(map, key, windowMs, max) {
@@ -206,7 +209,7 @@ function newSession(key) {
   while (mine.length > 5) dropSession(mine.shift()[0]);
   touchSession(sha(tok)); return tok;
 }
-const friendList = key => db.users[key].friends.map(n => ({ n, on: online.has(n.toLowerCase()) }));
+const friendList = key => db.users[key].friends.map(n => { const fk = n.toLowerCase(), fu = db.users[fk]; return { n, on: online.has(fk), lvl: fu ? lvlOf(+fu.save.xp || 0) : 1 }; });
 function notifyFriends(key) {
   for (const [k, c] of online) {
     if (k !== key && db.users[k].friends.some(f => f.toLowerCase() === key)) c.send({ t: 'friends', list: friendList(k) });
