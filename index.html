@@ -195,13 +195,13 @@ const PANTS=[0x2b3a55,0x3d3d3d,0x5a4632,0x1f1f1f],SKIN=[0xf1c9a5,0xd9a27a,0xa975
 // ---------- Rosto em textura (pintado em canvas) ----------
 const FHC=[0x1b1b1b,0x4a3020,0x7a5230,0xd8b45a,0xa8441f,0x9a9a9a,0xeeeeee,0x2b5fcc],FCACHE=new Map(),fhx=n=>'#'+n.toString(16).padStart(6,'0');
 function faceTex(L,seed,skinHex){
- const key=[L.sex,skinHex,L.hc,L.glasses,L.must,L.beard,L.fc,seed%16].join();let t=FCACHE.get(key);if(t)return t;
+ const key=[L.sex,skinHex,L.hc,L.glasses,L.must,L.beard,L.fc,L.eye,seed%16].join();let t=FCACHE.get(key);if(t)return t;
  const c=document.createElement('canvas');c.width=256;c.height=128;const g=c.getContext('2d'),r=seedR(seed*977+13),R=(a,b)=>a+r()*(b-a),fem=L.sex===1,cx=64,sk=fhx(skinHex),hc=fhx(FHC[L.hc]),fc=fhx(FHC[L.fc]);
  g.fillStyle=sk;g.fillRect(0,0,256,128);
  const tn=(x,y,rx,ry,col)=>{g.fillStyle=col;g.beginPath();g.ellipse(x,y,rx,ry,0,0,7);g.fill()};
  const gr=g.createLinearGradient(0,0,0,128);gr.addColorStop(0,'#0000001c');gr.addColorStop(.3,'#0000');gr.addColorStop(.8,'#0000');gr.addColorStop(1,'#00000038');g.fillStyle=gr;g.fillRect(0,0,256,128);
  const es=R(13,17),ew=R(5.4,7.4),eh=R(3,4.2),ey=58,bt=R(1.6,3.8)*(fem?.7:1),ba=R(-1,2.5),mw=R(9,14),my=80,
-  iris=['#3a2414','#2a1a10','#2d5a8a','#3d7a4a','#6a5030','#1a1a1a'][Math.floor(r()*6)],lip=['#b03a4a','#c0505a','#8a2a3a','#d0707a'][Math.floor(r()*4)];
+  iris=fhx(IRISC[L.eye!=null?L.eye:Math.floor(r()*6)]),lip=['#b03a4a','#c0505a','#8a2a3a','#d0707a'][Math.floor(r()*4)];
  tn(cx,70,11,12,'#ffffff10');tn(cx-20,73,9,6,fem?'#e0605a2c':'#b0503c16');tn(cx+20,73,9,6,fem?'#e0605a2c':'#b0503c16');tn(cx,100,11,5,'#00000012');
  for(const sd of[-1,1]){const ex=cx+sd*es;
   tn(ex,ey-1,ew+4,eh+3,'#00000014');if(fem)tn(ex,ey-3,ew+2,eh+1.5,['#8a5a9a30','#5a7aa030','#b0707030','#00000020'][Math.floor(r()*4)]);
@@ -256,7 +256,10 @@ function pgeo(){if(PGC)return PGC;const G=PGC={};
  const fi=(x,l)=>[new THREE.CylinderGeometry(.013,.012,l,6),x,-.06-l/2,.004],ti=(x,l)=>[sp(.014,6,5),x,-.06-l,.004];
  G.hand=mg([[sp(.06,12,9),0,0,0,1,1.2,.55],...[[-.032,.07],[-.011,.082],[.011,.078],[.032,.062]].flatMap(([x,l])=>[fi(x,l),ti(x,l)]),[new THREE.CylinderGeometry(.015,.012,.06,6),-.066,-.03,.012,1,1,1,0,.5],[sp(.015,6,5),-.082,-.056,.012]]);
  G.ear=sp(.045,10,8);G.bust=new THREE.SphereGeometry(.085,sg(14),sg(10));sup(G.pelvis,2.4);sup(G.thigh,2.2);
- G.nose=mg([[new THREE.CylinderGeometry(.013,.024,.075,8),0,.02,.012,1,1,1,-.4],[sp(.026,8,6),0,-.022,.034,1.05,.9,1.1],[sp(.016,6,5),-.024,-.018,.014],[sp(.016,6,5),.024,-.018,.014]]);
+ G.noses=[
+  mg([[new THREE.CylinderGeometry(.013,.024,.075,8),0,.02,.012,1,1,1,-.4],[sp(.026,8,6),0,-.022,.034,1.05,.9,1.1],[sp(.016,6,5),-.024,-.018,.014],[sp(.016,6,5),.024,-.018,.014]]), // normal
+  mg([[new THREE.CylinderGeometry(.011,.02,.055,8),0,.014,.01,1,1,1,-.55],[sp(.021,8,6),0,-.012,.03,1.05,.95,1.05],[sp(.013,6,5),-.019,-.01,.012],[sp(.013,6,5),.019,-.01,.012]]), // arrebitado (pequeno)
+  mg([[new THREE.CylinderGeometry(.015,.027,.095,8),0,.026,.014,1,1,1,-.32],[sp(.03,8,6),0,-.028,.04,1.08,.92,1.14],[sp(.018,6,5),-.028,-.022,.016],[sp(.018,6,5),.028,-.022,.016]])]; // marcante (grande)
  const hg=sp(.26,32,22),pa=hg.attributes.position,R0=.26;for(let i=0;i<pa.count;i++){let x=pa.getX(i),y=pa.getY(i),z=pa.getZ(i);const v=y/R0,w=z/R0;
   if(w<0)z*=1.07;if(v>0)x*=1-.12*v*v;
   if(w>0&&v<.6){const f=Math.min(1,(.6-v)/.55);z*=1-.13*f*Math.min(1,w*1.3)}
@@ -309,7 +312,11 @@ function buildPerson(o){
  applyBody(parts,o.bd||0,false);
  return{g,parts};
 }
-function walk(p,ph,on){const a=on?Math.sin(ph)*.7:0;p.legL.rotation.x=a;p.legR.rotation.x=-a;p.armL.rotation.x=-a;p.armR.rotation.x=a}
+function walk(p,ph,on,dt){ // transição suave de amplitude (sem "ligar/desligar" abrupto) + joelhos dobrando para um passo mais fluido
+ const tgt=on?1:0;p._wa=p._wa==null?tgt:p._wa+(tgt-p._wa)*Math.min(1,(dt||.05)*11);const amp=p._wa;
+ const a=Math.sin(ph)*.72*amp,kL=Math.max(0,Math.sin(ph))*1.1*amp,kR=Math.max(0,-Math.sin(ph))*1.1*amp;
+ p.legL.rotation.x=a;p.legR.rotation.x=-a;if(p.legL.knee)p.legL.knee.rotation.x=kL;if(p.legR.knee)p.legR.knee.rotation.x=kR;
+ p.armL.rotation.x=-a*.92;p.armR.rotation.x=a*.92}
 const POLICE_SHIRT=0x1f4aa8,POLICE_PANTS=0x15233f; // farda azul da polícia: fixa para o jogador local e para todos os remotos, nunca muda (ex.: ao jogar online)
 const pl=buildPerson({shirt:POLICE_SHIRT,pants:POLICE_PANTS,skin:0xe0b090,hat:true,hatColor:0x10224a,pack:false,scale:1});
 const player=pl.g;player.position.set(0,0,-8);scene.add(player);
@@ -471,8 +478,10 @@ function cycleWeapon(){const l=own.slice().sort((a,b)=>a-b);equip(l[(l.indexOf(e
 // ---------- Aparência do personagem (pele, cabelo, óculos, bigode, barba) ----------
 const SKINS=[0xf6d5bd,0xf1c9a5,0xe0b090,0xd9a27a,0xb98560,0xa97550,0x7a5236,0x4b3022],
  HAIRC=[0x1b1b1b,0x4a3020,0x7a5230,0xd8b45a,0xa8441f,0x9a9a9a,0xeeeeee,0x2b5fcc],
- HAIRN=['Sem cabelo','Curto','Médio','Longo','Cacheado','Rabo de cavalo','Coque'],GLN=['Nenhum','Redondo','Quadrado','Escuro'],MUN=['Nenhum','Fino','Grosso'],BEN=['Nenhuma','Cavanhaque','Curta','Cheia'],
- LOOKMAX={skin:8,hair:7,hc:8,glasses:4,must:3,beard:4,fc:8,sex:2};
+ IRISC=[0x3a2414,0x2a1a10,0x2d5a8a,0x3d7a4a,0x6a5030,0x1a1a1a],
+ NOSEN=['Normal','Arrebitado','Marcante'],
+ HAIRN=['Sem cabelo','Curto','Médio','Longo','Cacheado','Rabo de cavalo','Coque','Moicano','Tranças'],GLN=['Nenhum','Redondo','Quadrado','Escuro'],MUN=['Nenhum','Fino','Grosso'],BEN=['Nenhuma','Cavanhaque','Curta','Cheia'],
+ LOOKMAX={skin:8,hair:9,hc:8,glasses:4,must:3,beard:4,fc:8,sex:2,nose:3,eye:6};
 function cleanLook(l){const o={};l=l&&typeof l==='object'?l:{};for(const k in LOOKMAX){const v=Math.floor(+l[k]);o[k]=v>=0&&v<LOOKMAX[k]?v:(k==='skin'?2:0)}return o}
 let myLook=cleanLook(ls('pc_look'));
 function applyLook(av,L){
@@ -490,15 +499,21 @@ function applyLook(av,L){
  const bx=(w,h,d,m,x,y,z)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);lg.add(o);return o};
  const sh=(r,y,z,phs,phl,ts,tl,m)=>{const o=new THREE.Mesh(new THREE.SphereGeometry(r,28,18,phs,phl,ts,tl),m);o.scale.set(1.04,1.1,1.05);o.position.set(0,y,z);lg.add(o);return o};
  av.hands=[P.armL,P.armR].map(a=>{const h=new THREE.Mesh(pgeo().hand,P.skm);h.castShadow=true;{const k=(BODY[bd]||BODY[0]).hand;h.scale.set(a===P.armL?-k:k,k,k)}h.position.y=-.86;a.add(h);return h});
- const ns=new THREE.Mesh(pgeo().nose,P.skm);ns.position.set(0,1.97,.225);lg.add(ns);
+ const ns=new THREE.Mesh(pgeo().noses[L.nose||0]||pgeo().noses[0],P.skm);ns.position.set(0,1.97,.225);lg.add(ns);
  // cabelo: aparece embaixo do chapéu, nas laterais e atrás (a frente do rosto fica livre)
  const hm=D(HAIRC[L.hc]),ps=PI/2+.75,pl2=2*PI-1.5;
  if(L.hair===1)sh(.285,2,-.01,ps,pl2,0,1.55,hm);
  else if(L.hair===2)sh(.29,2,-.015,ps,pl2,0,1.85,hm);
  else if(L.hair===3){sh(.29,1.99,-.02,ps,pl2,0,1.95,hm);bx(.52,.62,.13,hm,0,1.72,-.205)}
  else if(L.hair===4)sh(.34,2.04,-.02,PI/2+.55,2*PI-1.1,.85,1.35,hm);
- else if(L.hair===5){sh(.285,2,-.01,ps,pl2,0,1.55,hm);bx(.15,.55,.15,hm,0,1.8,-.34)}
+ else if(L.hair===5){sh(.285,2,-.01,ps,pl2,0,1.55,hm); // rabo de cavalo: mecha afunilada em 3D em vez de caixa chapada
+  const tail=new THREE.Mesh(new THREE.CylinderGeometry(.075,.022,.58,10),hm);tail.position.set(0,1.78,-.33);tail.rotation.x=.6;lg.add(tail);
+  const tip=new THREE.Mesh(new THREE.SphereGeometry(.03,8,6),hm);tip.position.set(0,1.5,-.6);lg.add(tip)}
  else if(L.hair===6){sh(.285,2,-.01,ps,pl2,0,1.55,hm);sh(.16,2.28,-.1,0,2*PI,0,PI,hm)}
+ else if(L.hair===7){for(let i=-2;i<=2;i++){const hh=.24-Math.abs(i)*.04,cone=new THREE.Mesh(new THREE.ConeGeometry(.05,hh,8),hm);cone.position.set(0,2.07+hh/2,-.08+i*.085);lg.add(cone)}} // moicano
+ else if(L.hair===8){sh(.285,2,-.01,ps,pl2,0,1.55,hm); // tranças ao redor da cabeça
+  for(let i=0;i<8;i++){const a=(i/8)*2*PI,rr=.25,x=Math.sin(a)*rr,z=Math.cos(a)*rr*.6-.05;if(z>.1)continue;
+   const braid=new THREE.Mesh(new THREE.CylinderGeometry(.026,.016,.46+(i%3)*.05,6),hm);braid.position.set(x,1.72,z-.08);braid.rotation.z=x*.9;braid.rotation.x=.12;lg.add(braid)}}
 }
 applyLook(pl,myLook);
 
@@ -537,7 +552,7 @@ function repairCar(){const need=100-carHp;if(need<.5)return;const cost=Math.ceil
 const npcs=[];
 function freePos(r){let x,z,t=0;do{x=(Math.random()-.5)*480;z=(Math.random()-.5)*480;t++}while(collides(x,z,r)&&t<60);return[x,z]}
 function randLook(){const sex=Math.random()<.5?1:0,r=k=>Math.floor(Math.random()*LOOKMAX[k]),pk=a=>a[Math.floor(Math.random()*a.length)],hc=r('hc');
- return{sex,skin:r('skin'),hair:sex?pk([1,2,3,3,4,5,6]):pk([0,1,1,2,4,5]),hc,v:Math.floor(Math.random()*1e6),bd:pk([0,0,0,0,0,1,2,2]),glasses:Math.random()<.25?1+Math.floor(Math.random()*3):0,must:!sex&&Math.random()<.22?1+Math.floor(Math.random()*2):0,beard:!sex&&Math.random()<.18?1+Math.floor(Math.random()*3):0,fc:hc}}
+ return{sex,skin:r('skin'),hair:sex?pk([1,2,3,3,4,5,6,8]):pk([0,1,1,2,4,5,7,8]),hc,v:Math.floor(Math.random()*1e6),bd:pk([0,0,0,0,0,1,2,2]),glasses:Math.random()<.25?1+Math.floor(Math.random()*3):0,must:!sex&&Math.random()<.22?1+Math.floor(Math.random()*2):0,beard:!sex&&Math.random()<.18?1+Math.floor(Math.random()*3):0,fc:hc,nose:r('nose'),eye:r('eye')}}
 function lookNPC(n){n.lk={g:n.mesh,parts:n.parts};applyLook(n.lk,n.look)}
 function stripLook(n){const a=n.lk;n.lk=null;if(!a||!a.lg)return;a.g.remove(a.lg);a.lg.traverse(o=>{if(o.geometry)o.geometry.dispose()});if(a.hands)a.hands.forEach(h=>{if(h.parent)h.parent.remove(h)})}
 function model(n){
@@ -924,8 +939,8 @@ function carVsPeds(){if(inside||carHp<=0)return;const g=car.g,mv=driving&&Math.a
 mkTraffic();
 // IA: criminosos procuram objeto entre eles e o jogador, correm até lá, ficam agachados e espiam por cima (baixo) ou pela lateral (alto) para atirar
 // Agachar: coxas à frente e joelhos dobrados, corpo desce e recua. Rolar: encolhe, dobra pernas/braços e gira em torno do centro do corpo (sem afundar no chão)
-function bodyPose(){const P=pl.parts,rolling=rollEnd>time;let rx=0,sc=1,oy=-.41*crC,oz=-.447*crC-.3*covC,tk=0;
- if(rolling){const u=1-(rollEnd-time)/.55;tk=Math.max(0,Math.min(1,u/.18,(1-u)/.18));rx=Math.max(0,Math.min(1,(u-.18)/.64))*Math.PI*2;sc=1;oy=(1-Math.cos(rx))+.25*tk;oz=-Math.sin(rx)}
+function bodyPose(){const P=pl.parts,rolling=rollEnd>time;let rx=0,sc=1,oy=-.41*crC+(plMove&&!rolling&&!crC?Math.abs(Math.sin(ph))*.035:0),oz=-.447*crC-.3*covC,tk=0;
+ if(rolling){const u=1-(rollEnd-time)/.55;tk=Math.max(0,Math.min(1,u/.18,(1-u)/.18));rx=Math.max(0,Math.min(1,(u-.18)/.64))*Math.PI*2;sc=1-.3*tk;oy=(1-Math.cos(rx))*.34+.1*tk;oz=-Math.sin(rx)*.6} // rolamento rente ao chão (tombo compacto), não mais um salto no ar
  if(faint&&!faint.onboard){rx=-Math.PI/2;oy=0;oz=0;player.position.y=.3}player.rotation.x=rx;player.scale.set(sc*(aimOn&&((cov&&cov.s)||shSide)<0?-1:1),sc,sc);vOff.y=oy;vOff.z=oz;
  const f=Math.max(crC,tk);for(const L of[P.legL,P.legR]){L.rotation.x=(rolling?-1.6:-1.45)*f+L.rotation.x*(1-f);L.knee.rotation.x=(rolling?2.2:1.45)*f}
  if(crC>.2&&plMove&&!rolling){const s=Math.sin(ph)*.5*crC;P.legL.rotation.x+=s;P.legR.rotation.x-=s;P.legL.knee.rotation.x+=Math.max(0,-s)*1.2;P.legR.knee.rotation.x+=Math.max(0,s)*1.2}
@@ -994,7 +1009,7 @@ function loop(){
   crC+=(((crouch||(cov&&cov.low))&&!aimOn&&!rolling?1:0)-crC)*Math.min(1,dt*12);covC+=(((cov&&!cov.low)&&!aimOn&&!rolling?1:0)-covC)*Math.min(1,dt*12);
   const cb=$('covb');if(cb)cb.textContent=cov?'SAIR':crouch?'LEVANTAR':'COBERT.'}
  if(aimOn){let d=camYaw-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*16)}
- plMove=moving&&!driving;walk(pl.parts,ph,plMove);if(swingT>0)swingT=Math.max(0,swingT-dt);poseArm(pl,aimOn,swingT);bodyPose();
+ plMove=moving&&!driving;walk(pl.parts,ph,plMove,dt);if(swingT>0)swingT=Math.max(0,swingT-dt);poseArm(pl,aimOn,swingT);bodyPose();
  if(riding){const so=SEAT_OFF[riding]||SEAT_OFF[1],cy=car.g.rotation.y;
   player.position.set(car.g.position.x+so.x*Math.cos(cy)+so.z*Math.sin(cy),0,car.g.position.z-so.x*Math.sin(cy)+so.z*Math.cos(cy))}
  const P=pos();
@@ -1190,7 +1205,7 @@ function updRemotes(dt){
    r.g.visible=false;p.x=s.x;p.z=s.z;continue}
   const f=1-Math.exp(-30*dt),dx=s.x-p.x,dz=s.z-p.z;
   if(Math.hypot(dx,dz)>14){p.x=s.x;p.z=s.z}else{p.x+=dx*f;p.z+=dz*f}
-  const sp=dt>0?Math.hypot(dx,dz)*f/dt:0;r.ph+=dt*9;walk(r.parts,r.ph,sp>.8);poseArm(r,false,0);
+  const sp=dt>0?Math.hypot(dx,dz)*f/dt:0;r.ph+=dt*9;walk(r.parts,r.ph,sp>.8,dt);poseArm(r,false,0);
   r.g.rotation.y+=wrapA(s.r-r.g.rotation.y)*Math.min(1,dt*14);
   if(r.fnt&&!r.boarded){walk(r.parts,0,false);r.g.rotation.x=-Math.PI/2;p.y=.3}else{r.g.rotation.x=0;p.y=0}
   r.g.visible=!(k===rd||seats.includes(k)||r.boarded)} // quem está na viatura não aparece: só o nome sobre o carro
@@ -1258,6 +1273,8 @@ function openApp(){
  '<div class="lbl">Cor da pele</div>'+sw('ap_skin',SKINS,L.skin)+
  '<div class="lbl">Cabelo</div>'+chips('ap_hair',HAIRN,L.hair)+
  (L.hair?'<div class="lbl">Cor do cabelo</div>'+sw('ap_hc',HAIRC,L.hc):'')+
+ '<div class="lbl">Formato do nariz</div>'+chips('ap_nose',NOSEN,L.nose)+
+ '<div class="lbl">Cor dos olhos</div>'+sw('ap_eye',IRISC,L.eye)+
  '<div class="lbl">Óculos</div>'+chips('ap_gl',GLN,L.glasses)+
  (L.sex?'':'<div class="lbl">Bigode</div>'+chips('ap_mu',MUN,L.must)+'<div class="lbl">Barba</div>'+chips('ap_be',BEN,L.beard)+(L.must||L.beard?'<div class="lbl">Cor da barba/bigode</div>'+sw('ap_fc',HAIRC,L.fc):''))+
  '<div class="lbl">Visão</div><button class="chip" data-a="ap_zoom">'+(edZoom?'🧍 Ver o corpo todo':'🔍 Zoom no rosto')+'</button><button class="chip" data-a="ap_rand">🎲 Aleatório</button><button class="chip" data-a="ap_reset">↺ Padrão</button>'+
@@ -1269,7 +1286,7 @@ function appAct(a,n){
  if(a==='ap_zoom'){edZoom=!edZoom;openApp();return}
  if(a==='ap_rand'){for(const k in LOOKMAX)myLook[k]=Math.floor(Math.random()*LOOKMAX[k]);if(myLook.sex){myLook.must=0;myLook.beard=0}}
  else if(a==='ap_reset')myLook=cleanLook(null);
- else{const k={ap_skin:'skin',ap_hair:'hair',ap_hc:'hc',ap_gl:'glasses',ap_mu:'must',ap_be:'beard',ap_fc:'fc',ap_sex:'sex'}[a];if(!k||!(n>=0&&n<LOOKMAX[k]))return;myLook[k]=n;if(k==='sex'&&n===1){myLook.must=0;myLook.beard=0}}
+ else{const k={ap_skin:'skin',ap_hair:'hair',ap_hc:'hc',ap_gl:'glasses',ap_mu:'must',ap_be:'beard',ap_fc:'fc',ap_sex:'sex',ap_nose:'nose',ap_eye:'eye'}[a];if(!k||!(n>=0&&n<LOOKMAX[k]))return;myLook[k]=n;if(k==='sex'&&n===1){myLook.must=0;myLook.beard=0}}
  applyLook(pl,myLook);lookChanged();openApp()}
 function socAct(a,n){
  if(a.slice(0,3)==='ap_')return appAct(a,n);
