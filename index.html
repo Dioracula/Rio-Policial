@@ -98,9 +98,10 @@ body.edit #jz,body.edit #joy,body.edit #acts,body.edit #gps,body.edit #hud,body.
 #mbox{border:1px solid #ffffff1f;border-radius:16px;box-shadow:0 12px 40px #000a}
 #mbox button{font-weight:600;box-shadow:inset 0 1px 0 #ffffff30}
 #mbox button:active{filter:brightness(.85)}
+#stl{margin-top:6px;font-size:11px;display:none}
 </style></head><body>
 <canvas id="c"></canvas><div id="vig"></div>
-<div id="hud"><div id="left"><button id="minb">▾ Minimizar</button><div class="p" id="mission"></div><div class="p" id="notes"></div></div><div id="hr"><div class="p" id="score">Pontos: 0</div><div id="tools"><button class="btn" id="soc">☰</button></div></div></div>
+<div id="hud"><div id="left"><button id="minb">▾ Minimizar</button><div class="p" id="mission"></div><div class="p" id="notes"></div><div class="p" id="stl"></div></div><div id="hr"><div class="p" id="score">Pontos: 0</div><div id="tools"><button class="btn" id="soc">☰</button></div></div></div>
 <div class="p" id="prompt"></div><div class="p" id="msg"></div><canvas id="gps" width="300" height="300"></canvas><div id="menu"><div id="mbox"></div></div><div id="xh"></div><div id="rot">📱 Gire o celular para a horizontal para jogar</div><div id="login"><div class="lb"><h2>🚓 Policial da Cidade</h2><input id="nk" placeholder="Seu Nick (3–12 letras/números)" maxlength="12" autocomplete="username" autocapitalize="off" spellcheck="false"><input id="pw" type="password" placeholder="Senha (4–40 caracteres)" maxlength="40" autocomplete="current-password"><button id="lgo">ENTRAR</button><button id="lreg" style="background:#2ea043">CRIAR CONTA</button><button id="loff" style="background:#444">Jogar offline</button><button id="lsw" style="background:#555;display:none">Trocar de conta</button><div id="lst"></div></div></div>
 <div id="jz"></div><div id="joy"><div id="stick"></div></div>
 <div id="acts"><button class="btn" id="ab" style="background:#8957e5;display:none"></button><button class="btn" id="car" style="background:#1f6feb;display:none">ENTRAR</button><button class="btn" id="arrest" style="background:#2ea043">PRENDER</button><button class="btn" id="shoot" style="background:#da3633">ATIRAR</button><button class="btn" id="aimb" style="background:#6e7681">MIRA</button><button class="btn" id="wpn"></button></div>
@@ -561,14 +562,15 @@ function wreckFx(){
  {const w=carHp<=0;if(w&&!wreckCol){wreckCol={x:car.g.position.x,z:car.g.position.z,w:3.4,d:3.4,h:1.6};colliders.push(wreckCol)}else if(!w&&wreckCol){const i=colliders.indexOf(wreckCol);if(i>=0)colliders.splice(i,1);wreckCol=null}
   car.g.children[0].material.color.setHex(carHp<=0?0x1c1c1c:carHp<15?0x7a7068:carHp<40?0xa89f96:carHp<70?0xd9d4cf:0xf2f2f2);car.g.rotation.z=carHp<=0?.05:0}
  if(tow){const l=towLeft();
-  if(l<=8&&!towTruck&&carHp<=0){const k=buildCar(0xe8a33a,false),L=new THREE.Mesh(new THREE.BoxGeometry(.8,.2,.4),new THREE.MeshBasicMaterial({color:0xffaa00}));L.position.set(0,1.8,0);k.g.add(L);k.g.position.set(car.g.position.x+4,0,car.g.position.z);k.g.rotation.y=car.g.rotation.y;scene.add(k.g);towTruck={g:k.g,L}}
+  if(l<=8&&!towTruck&&carHp<=0){const k=buildTow(),cp=car.g.position,sx=OFI.x,sz=OFI.z+5,go=roadPath(sx,sz,cp.x,cp.z);stopShort(go,5.5);let len=0;for(let i=1;i<go.length;i++)len+=Math.hypot(go[i][0]-go[i-1][0],go[i][1]-go[i-1][1]);
+    k.g.position.set(sx,0,sz);if(go.length>1)k.g.rotation.y=Math.atan2(go[1][0]-sx,go[1][1]-sz);scene.add(k.g);towTruck={g:k.g,L:k.L,wp:go,i:1,sp:Math.min(70,Math.max(8,len/6))}}
   if(towTruck)towTruck.L.visible=Math.floor(time*6)%2===0;
   if(l<=0){const mine=tow.mine;finishTow();if(mine)send({t:'tow',done:1,x:OFI.x,z:OFI.z,h:TOW_HP})}}}
 function custCount(){if(driving)return npcs.filter(n=>n.custody&&!n.remoteBy).length;const r=remoteDriver&&remotes[remoteDriver.toLowerCase()];return r?r.k|0:0}
 // Recebe a prisão de um parceiro: acha (ou cria) o NPC e aplica o mesmo visual, sob custódia dele
 function arrRemote(m){const flag=m.o==='r'?'robber':m.o==='k'?'kid':'isSuspect',x=+m.x||0,z=+m.z||0;let n=null,bd=60;
  for(const q of npcs){if(!q[flag]||q.dead||q.arrested||q.custody)continue;const d=Math.hypot(q.mesh.position.x-x,q.mesh.position.z-z);if(d<bd){bd=d;n=q}}
- if(!n)n=spawnNPC([x,z],{[flag]:true,hold:true});
+ if(!n)n=spawnNPC([x,z],{[flag]:true,hold:true});surrStand(n);
  const tr=m.tr||{},ci=v=>Math.max(0,Math.min(16777215,+v||0));
  n.traits={cor:COLORS[tr.cor]!==undefined?tr.cor:'preta',bone:!!tr.bone,mochila:!!tr.mochila,altura:HS[tr.altura]?tr.altura:'médio'};n.pants=ci(m.pa);n.skin=ci(m.sk);n.hatC=ci(m.hc);
  if(Array.isArray(m.lk))n.look=cleanLook({sex:m.lk[0],skin:m.lk[1],hair:m.lk[2],hc:m.lk[3],glasses:m.lk[4],must:m.lk[5],beard:m.lk[6],fc:m.lk[7]});
@@ -626,16 +628,80 @@ function applyLook(av,L){
 }
 applyLook(pl,myLook);
 
-function buildCar(c,police){const g=new THREE.Group();
- const ad=(geo,m,x,y,z)=>{const me=new THREE.Mesh(geo,m);me.position.set(x,y,z);me.castShadow=true;g.add(me);return me};
- const ph=(k,sp,sh)=>new THREE.MeshPhongMaterial({color:k,specular:sp,shininess:sh});
- ad(new THREE.BoxGeometry(2,.7,4.4),ph(c,0x777777,70),0,.75,0);ad(new THREE.BoxGeometry(1.7,.6,2.2),ph(police?0x1a2b4a:0x0e1218,0xaabbcc,110),0,1.35,-.2);
- ad(new THREE.BoxGeometry(2.06,.12,.2),mat(0x2a2a2a),0,.5,2.2);ad(new THREE.BoxGeometry(2.06,.12,.2),mat(0x2a2a2a),0,.5,-2.2);
- [-.7,.7].forEach(x=>{ad(new THREE.BoxGeometry(.4,.2,.08),new THREE.MeshBasicMaterial({color:0xfff2b8}),x,.85,2.21);ad(new THREE.BoxGeometry(.4,.2,.08),new THREE.MeshBasicMaterial({color:0xb81818}),x,.85,-2.21)});
- if(police)ad(new THREE.BoxGeometry(2.03,.22,2.4),ph(0x1f4aa8,0x444444,40),0,.72,-.2);
- const wm=mat(0x111111);[[-1,1.4],[1,1.4],[-1,-1.4],[1,-1.4]].forEach(([x,z])=>{ad(new THREE.CylinderGeometry(.4,.4,.3,12),wm,x,.4,z).rotation.z=Math.PI/2;ad(new THREE.CylinderGeometry(.24,.24,.32,10),mat(0xaab0b8),x,.4,z).rotation.z=Math.PI/2});
- let lights=null;if(police)lights=[ad(new THREE.BoxGeometry(.5,.15,.3),new THREE.MeshBasicMaterial({color:0xff2222}),-.4,1.72,-.2),ad(new THREE.BoxGeometry(.5,.15,.3),new THREE.MeshBasicMaterial({color:0x2266ff}),.4,1.72,-.2)];
+// ---------- Veículos (carro, ambulância, reboque): malha melhorada + rodas que giram ----------
+const VEH=[],_vg={};
+const VG=(k,f)=>_vg[k]||(_vg[k]=f());
+function cg(geo,x,y,z,col){geo=geo.index?geo.toNonIndexed():geo;geo.translate(x,y,z);const n=geo.attributes.position.count,a=new Float32Array(n*3),c=new THREE.Color(col);
+ for(let i=0;i<n;i++){a[3*i]=c.r;a[3*i+1]=c.g;a[3*i+2]=c.b}geo.setAttribute('color',new THREE.BufferAttribute(a,3));return geo}
+const vbx=(w,h,d,x,y,z,col,rx)=>{const g=new THREE.BoxGeometry(w,h,d);if(rx)g.rotateX(rx);return cg(g,x,y,z,col)};
+function mergeG(list){let n=0;list.forEach(g=>n+=g.attributes.position.count);
+ const P=new Float32Array(n*3),N=new Float32Array(n*3),C=new Float32Array(n*3);let o=0;
+ list.forEach(g=>{P.set(g.attributes.position.array,o*3);N.set(g.attributes.normal.array,o*3);C.set(g.attributes.color.array,o*3);o+=g.attributes.position.count});
+ const m=new THREE.BufferGeometry();m.setAttribute('position',new THREE.BufferAttribute(P,3));m.setAttribute('normal',new THREE.BufferAttribute(N,3));m.setAttribute('color',new THREE.BufferAttribute(C,3));return m}
+// perfil lateral (z = frente/trás, y = altura) extrudado na largura w, com bordas arredondadas
+function sideGeo(pts,w,b){const s=new THREE.Shape();pts.forEach(([z,y],i)=>i?s.lineTo(z,y):s.moveTo(z,y));s.closePath();
+ const dp=w-2*b,g=new THREE.ExtrudeGeometry(s,{depth:dp,bevelEnabled:true,bevelThickness:b,bevelSize:b,bevelSegments:2,curveSegments:1});
+ g.rotateY(-Math.PI/2);g.translate(dp/2,0,0);return g}
+const RIMTEX=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');x.fillStyle='#17181c';x.fillRect(0,0,128,128);x.translate(64,64);
+ x.fillStyle='#c9cfd7';x.beginPath();x.arc(0,0,43,0,7);x.fill();x.strokeStyle='#4a4f57';x.lineWidth=9;x.lineCap='round';
+ for(let i=0;i<5;i++){x.rotate(Math.PI*2/5);x.beginPath();x.moveTo(0,0);x.lineTo(0,-37);x.stroke()}
+ x.fillStyle='#6b727b';x.beginPath();x.arc(0,0,11,0,7);x.fill();x.fillStyle='#e03a3a';x.beginPath();x.arc(25,-22,4.5,0,7);x.fill();return new THREE.CanvasTexture(c)})();
+const WHM=[new THREE.MeshLambertMaterial({color:0x15161a}),new THREE.MeshLambertMaterial({map:RIMTEX}),new THREE.MeshLambertMaterial({map:RIMTEX})];
+// ws: [[x,z,dianteira?]...]; cada roda = pivô (esterçar) > giro (rodar) > cilindro; registra o veículo p/ girar ao andar
+function addWheels(g,ws,r,wd){const arr=[];
+ ws.forEach(([x,z,fr])=>{const pv=new THREE.Group(),sp=new THREE.Group();pv.position.set(x,r,z);pv.add(sp);
+  const m=new THREE.Mesh(VG('wh'+r+'_'+wd,()=>new THREE.CylinderGeometry(r,r,wd,18)),WHM);m.rotation.z=Math.PI/2;m.castShadow=true;sp.add(m);g.add(pv);arr.push({pv,sp,r,front:!!fr})});
+ VEH.push({g,w:arr,st:0,init:0,seen:0,lx:0,lz:0,ly:0})}
+function updWheels(dt){if(!(dt>0))return;
+ if(towTruck&&towTruck.wp)svcDrive(towTruck,dt,towTruck.sp);
+ for(let i=VEH.length-1;i>=0;i--){const v=VEH[i],g=v.g;
+  if(!g.parent){if(v.seen)VEH.splice(i,1);continue}
+  v.seen=1;const p=g.position,ry=g.rotation.y;
+  if(v.init){const dx=p.x-v.lx,dz=p.z-v.lz;
+   if(dx*dx+dz*dz<9){const d=dx*Math.sin(ry)+dz*Math.cos(ry),dy=wrapA(ry-v.ly);
+    for(const w of v.w)w.sp.rotation.x+=d/w.r;
+    const tg=Math.abs(d)>.01?Math.max(-.5,Math.min(.5,Math.atan(2.8*dy/d))):0;v.st+=(tg-v.st)*Math.min(1,dt*10);
+    for(const w of v.w)if(w.front)w.pv.rotation.y=v.st}}
+  v.init=1;v.lx=p.x;v.lz=p.z;v.ly=ry}}
+const pmat=(k,sp,sh)=>new THREE.MeshPhongMaterial({color:k,specular:sp,shininess:sh});
+const DETM=new THREE.MeshLambertMaterial({vertexColors:true}),GLOWM=new THREE.MeshBasicMaterial({vertexColors:true});
+const arch=(x,z,r)=>cg(new THREE.CylinderGeometry(r,r,.04,14).rotateZ(Math.PI/2),x,.4,z,0x050506);
+function buildCar(c,police){const g=new THREE.Group(),paint=pmat(c,0x777777,70);
+ const add=(geo,m,sh)=>{const me=new THREE.Mesh(geo,m);me.castShadow=!!sh;g.add(me);return me};
+ // carroceria (children[0]: o código de dano pinta este material; o teto divide o mesmo material)
+ add(VG('carBody',()=>sideGeo([[-2.15,.32],[2.15,.32],[2.15,.78],[1.85,.98],[.95,1.04],[-1.55,1.04],[-2.12,.98],[-2.15,.8]],2,.05)),paint,1);
+ add(VG('carGlass',()=>sideGeo([[-1.2,1.05],[1.05,1.05],[.62,1.6],[-.85,1.6]],1.76,.02)),pmat(police?0x1a2b4a:0x0e1218,0xaabbcc,110),1);
+ add(VG('carRoof',()=>new THREE.BoxGeometry(1.8,.07,1.5)),paint).position.set(0,1.64,-.12);
+ const dk=0x1b1c20;
+ add(VG('carDet'+(police?'P':''),()=>mergeG([
+  vbx(2.1,.18,.18,0,.42,2.2,dk),vbx(2.1,.18,.18,0,.42,-2.2,dk),vbx(1.35,.2,.05,0,.64,2.22,0x0b0b0d),vbx(.55,.18,.03,0,.58,-2.23,0xf0f0f0),
+  vbx(1.9,.2,4,0,.3,0,0x0b0b0d),vbx(.05,.56,.1,.9,1.33,-.15,dk),vbx(.05,.56,.1,-.9,1.33,-.15,dk),
+  vbx(.14,.1,.22,1.06,1.2,.7,dk),vbx(.14,.1,.22,-1.06,1.2,.7,dk),
+  arch(1.015,1.4,.47),arch(-1.015,1.4,.47),arch(1.015,-1.4,.47),arch(-1.015,-1.4,.47)]
+  .concat(police?[vbx(2.04,.2,2.4,0,.72,-.2,0x1f4aa8),vbx(1.3,.06,.42,0,1.69,-.12,0x111216)]:[]))),DETM);
+ add(VG('carGlow',()=>mergeG([vbx(.46,.18,.06,.7,.64,2.2,0xfff2b8),vbx(.46,.18,.06,-.7,.64,2.2,0xfff2b8),vbx(.4,.16,.06,.72,.72,-2.2,0xc01818),vbx(.4,.16,.06,-.72,.72,-2.2,0xc01818)])),GLOWM);
+ addWheels(g,[[-1,1.4,1],[1,1.4,1],[-1,-1.4],[1,-1.4]],.4,.3);
+ let lights=null;if(police){const lm=k=>new THREE.MeshBasicMaterial({color:k}),lg=VG('carLb',()=>new THREE.BoxGeometry(.55,.16,.34));
+  lights=[-.4,.4].map((x,i)=>{const m=new THREE.Mesh(lg,lm(i?0x2266ff:0xff2222));m.position.set(x,1.78,-.12);g.add(m);return m})}
  return{g,lights}}
+function buildTow(){const g=new THREE.Group(),paint=pmat(0xe8a33a,0x777777,60),dk=0x1b1c20;
+ const add=(geo,m,sh)=>{const me=new THREE.Mesh(geo,m);me.castShadow=!!sh;g.add(me);return me};
+ add(VG('towCab',()=>sideGeo([[.5,.5],[2.7,.5],[2.7,1.05],[2.35,1.2],[1.95,1.25],[1.5,2.25],[.5,2.25]],2.1,.05)),paint,1);
+ add(VG('towDet',()=>mergeG([
+  vbx(1.6,.3,5.6,0,.62,-.1,0x2a2c31),vbx(2.2,.14,3.3,0,.98,-1.25,0x3a3d42),
+  vbx(.1,.22,3.3,1.1,1.14,-1.25,0xe8a33a),vbx(.1,.22,3.3,-1.1,1.14,-1.25,0xe8a33a),vbx(2.3,.22,.1,0,1.14,-2.9,0xe8a33a),
+  vbx(2.1,.08,.08,0,2.0,.28,dk),vbx(.08,.9,.08,.95,1.55,.28,dk),vbx(.08,.9,.08,-.95,1.55,.28,dk),vbx(2.1,.08,.08,0,1.15,.28,dk),
+  vbx(2,.06,1.31,0,.5,-3.58,0x55585e,-.756),
+  vbx(2.3,.2,.2,0,.42,2.8,dk),vbx(2.3,.2,.2,0,.42,-3.02,dk),vbx(1.3,.22,.05,0,.7,2.72,0x0b0b0d),
+  vbx(.04,.62,.9,1.08,1.75,1.1,0x101a26),vbx(.04,.62,.9,-1.08,1.75,1.1,0x101a26),
+  vbx(1.8,1.0,.04,0,1.76,1.74,0x101a26,-.42),
+  vbx(.14,.1,.22,1.16,1.7,1.9,dk),vbx(.14,.1,.22,-1.16,1.7,1.9,dk),
+  vbx(.04,.08,3.4,1.1,.9,-1.2,0xf2e04a)]
+ )),DETM);
+ add(VG('towGlow',()=>mergeG([vbx(.4,.2,.06,.8,.8,2.72,0xfff2b8),vbx(.4,.2,.06,-.8,.8,2.72,0xfff2b8),vbx(.4,.18,.06,.8,.8,-3.0,0xc01818),vbx(.4,.18,.06,-.8,.8,-3.0,0xc01818)])),GLOWM);
+ addWheels(g,[[-1.05,1.95,1],[1.05,1.95,1],[-1.05,-1.2],[1.05,-1.2],[-1.05,-2.15],[1.05,-2.15]],.45,.34);
+ const L=new THREE.Mesh(new THREE.BoxGeometry(.9,.2,.4),new THREE.MeshBasicMaterial({color:0xffaa00}));L.position.set(0,2.4,1.0);g.add(L);
+ return{g,L}}
 const car=buildCar(0xf2f2f2,true);car.g.position.set(8,0,-6);scene.add(car.g);
 // ---------- Oficina (colada na Central) e efeitos de dano da viatura ----------
 const OFI={x:9.5,z:-20.5},REP_K=3;
@@ -707,7 +773,7 @@ function clearClues(){clues.forEach(c=>{scene.remove(c.m);if(c.ex)scene.remove(c
 function endMission(win,text,pts=0){if(mDone)return;mDone=true;if(!win)wipeCriminals();else{crm++;if(mtype==='invest'&&crime==='homicídio')per++}pts*=mStars;addPts(pts);if(pts)text+=` ×${mStars}★ = +${pts}`;if(suspect){suspect.isSuspect=false;suspect.armed=false;suspect=null}if(roomCode)send({t:'end',text,pts,w:win?1:0});msg(text,3000);endKid();clearClues();notes=[];if(bankBeam){scene.remove(bankBeam);bankBeam=null}genOffers();hud();saveGame()}
 function neutralize(n,kind,dl){
  n.t0=performance.now();if(n.tied)untie(n);if(n.grab)release(n,true);
- if(kind==='arrest'){n.arrested=true;n.parts.sm.color.set(0x777777)}else{n.dead=true;ragKillNPC(n)}
+ if(kind==='arrest'){surrStand(n);n.arrested=true;n.parts.sm.color.set(0x777777)}else{n.dead=true;ragKillNPC(n)}
  if(kind==='arrest'&&!dl&&!n.lock&&(n.isSuspect||n.robber||n.kid)){n.custody=true;n.remoteBy=null;send({t:'arr',o:n.robber?'r':n.kid?'k':'s',tr:n.traits,pa:n.pants,sk:n.skin,hc:n.hatC,lk:n.look?[n.look.sex,n.look.skin,n.look.hair,n.look.hc,n.look.glasses,n.look.must,n.look.beard,n.look.fc]:null,x:+n.mesh.position.x.toFixed(1),z:+n.mesh.position.z.toFixed(1)});msg('Preso! Leve-o até a delegacia (siga o GPS)',3000);hud();return}
  if(n.bh){score-=15;msg('Um refém morreu! -15 pontos',2200);hud()}else if(n.hostage)endMission(false,'O refém morreu! Missão fracassada');else if(n.isSuspect)endMission(true,kind==='arrest'?'Suspeito preso! +15 pontos':'Suspeito neutralizado. +8 pontos',kind==='arrest'?15:8);
  else if(n.robber){addPts(kind==='arrest'?5:3);msg(kind==='arrest'?'Criminoso preso! +5':'Criminoso abatido! +3',1500);
@@ -727,30 +793,229 @@ function grab(n){if(Math.random()>.3+.1*mStars)return;let b=null,bd=14;for(const
  if(b){n.grab=b;n.grabT=15;b.hostageOf=n;b.hold=true;msg('O bandido pegou um civil como refém! Atire no bandido!',3000)}}
 function release(n,m){const c=n.grab;if(!c)return;n.grab=null;c.hostageOf=null;c.hold=false;if(m){addPts(10);msg('Civil salvo! +10',1500)}}
 function killCiv(n){const c=n.grab;n.grab=null;c.dead=true;c.t0=performance.now();ragKillNPC(c,n.mesh.position);score-=20;msg('O bandido matou o refém! -20 pontos',2500);hud()}
-function hitNPC(n,part,dm){dm=dm||1;
- if(n.hostage||!(n.robber||n.kid||n.isSuspect)){neutralize(n,'kill');return}
- if(mtype==='invest'&&crime==='tráfico de drogas'&&n===suspect&&!n.underFire){msg('Não atire! Prenda o suspeito — a menos que ele atire em vocês primeiro',2400);return}
- if(!n.react)setReact(n);n.revealed=true;if(n.dodge>time&&Math.random()<.4){msg('Ele desviou do tiro!',900);return}if(coverProt(n)&&Math.random()<.8){msg('Ele está protegido pela cobertura!',700);return}
+// ---------- Furtividade: visão (cone + linha de visão 3D), audição e exposição na cobertura ----------
+// blockedY: raio 3D contra os colliders respeitando a ALTURA (carro/lixeira baixos não bloqueiam cabeça/ombros; paredes bloqueiam tudo)
+function blockedY(ax,ay,az,bx,by,bz){const dx=bx-ax,dz=bz-az,dy=by-ay,L=Math.hypot(dx,dy,dz),k=Math.ceil(L/.25);
+ for(let i=1;i<k;i++){const t=i/k,x=ax+dx*t,z=az+dz*t,y=ay+dy*t,a=cellOf(x,z);
+  for(let j=0;j<a.length;j++){const b=a[j];if((b.h==null||y<b.h)&&Math.abs(x-b.x)<b.w/2&&Math.abs(z-b.z)<b.d/2)return true}}
+ return false}
+let noiseE=null,stlAcc=0,stlCnt=0,stlLast=0; // noiseE: último tiro de bandido (para os outros ouvirem)
+const plCr=()=>(driving||riding)?0:crC; // 0 = em pé, 1 = totalmente agachado
+// bandido enxerga o jogador? (algum ponto do corpo com linha livre). Usado para decidir se ele PODE atirar
+function seeBody(n,p,P){const t=time;if(n._sbT!=null&&t-n._sbT<.12)return n._sb;n._sbT=t;
+ const c=plCr(),ey=1.55*(n.mesh.scale.y/(n.sy0||n.mesh.scale.y)),dx=P.x-p.x,dz=P.z-p.z,l=Math.hypot(dx,dz)||1,px=-dz/l,pz=dx/l;let ok=false;
+ for(const y of(driving?[1.1]:[1.85-.7*c,1.4-.5*c]))for(const o of[0,.3,-.3]){if(!blockedY(p.x,ey,p.z,P.x+px*o,y,P.z+pz*o)){ok=true;break}}
+ return n._sb=ok}
+// o tiro do jogador (do olho até o ponto atingido no bandido) passa por cima/ao lado da cobertura?
+function shotCovered(n,E){const P=player.position,ey=1.55-.5*plCr(),sr=n.mesh.scale.y/(n.sy0||n.mesh.scale.y),
+ tx=E?E.x:n.mesh.position.x,tz=E?E.z:n.mesh.position.z,ty=E?E.y:1.3*sr;return blockedY(P.x,ey,P.z,tx,ty,tz)}
+// o tiro do bandido atinge o corpo do jogador? Sorteia cabeça/peito/quadril/pernas e a lateral; só acerta o que estiver exposto
+function bodyShielded(p,ux,uz){if(riding)return false;const P=player.position,c=plCr(),r=Math.random(),
+ ys=[1.85-.7*c,1.45-.55*c,.95-.35*c,.45-.15*c],ws=[.16,.4,.24,.2];let i=0,a=ws[0];while(r>a&&i<3)a+=ws[++i];
+ const l=(Math.random()-.5)*.56;return blockedY(p.x,1.5,p.z,P.x-uz*l,ys[i],P.z+ux*l)}
+// quão visível o jogador está agora (agachado, parado ou em cobertura = mais difícil de notar)
+function plVis(){if(driving||riding)return 1.2;let v=1;if(plCr()>.5)v*=.5;if(cov&&!aimOn)v*=.75;if(pSpd<.4)v*=.75;else if(pSpd>4.6)v*=1.2;if(aimOn||time-lastFireT<3)v*=1.25;return v}
+function heardShot(n,p,P,dp){
+ if(time-lastFireT<1.2){let R=45;if(blocked(p.x,p.z,P.x,P.z))R*=.6;if(dp<R)return true}
+ if(noiseE&&noiseE.n!==n&&time-noiseE.t<1.2){const d=Math.hypot(p.x-noiseE.x,p.z-noiseE.z);let R=40;if(blocked(p.x,p.z,noiseE.x,noiseE.z))R*=.6;if(d<R)return true}
+ return false}
+// Bandido ainda não alertado: só reage por (1) ouvir tiro ou (2) ver o jogador (cone de visão + linha livre), com barra de detecção gradual
+function stealthStep(n,p,P,dp,dt,bld){
+ if((n.robber||n.kid)&&heardShot(n,p,P,dp)){n.det=1;setReact(n,'fight');return}
+ if((n.hold||bld)&&!n.hostage&&!n.tied){if(n.scanB==null)n.scanB=n.mesh.rotation.y;if(!(n.det>.3))n.mesh.rotation.y=n.scanB+Math.sin(time*.5+n.ph)*1.0} // parado: varre o ambiente com o olhar
+ const R=26*plVis();let seen=0;
+ if(dp<R){const fy=n.mesh.rotation.y,ang=Math.abs(angD(Math.atan2(P.x-p.x,P.z-p.z),fy));
+  if(ang<(dp<2.5?1.7:1.0)){const ey=1.65*(n.mesh.scale.y/(n.sy0||n.mesh.scale.y)),c=plCr();
+   const a=!blockedY(p.x,ey,p.z,P.x,driving?1.2:1.85-.7*c,P.z),b=!blockedY(p.x,ey,p.z,P.x,driving?1.2:1.45-.55*c,P.z);
+   seen=(a&&b)?1:(a||b)?.55:0}}
+ n.det=Math.max(0,Math.min(1.2,(n.det||0)+(seen?(.35+1.6*Math.pow(1-dp/R,1.2))*seen*dt:-.45*dt)));
+ if(seen&&n.det>.35&&(n.hold||bld))n.mesh.rotation.y+=wrapA(Math.atan2(P.x-p.x,P.z-p.z)-n.mesh.rotation.y)*Math.min(1,dt*3);
+ if(dp<60){stlCnt++;stlAcc=Math.max(stlAcc,Math.min(1,n.det))}
+ if(n.det>=1)setReact(n)}
+function stlHud(){const e=$('stl');if(!e||time-stlLast<.2)return;stlLast=time;
+ if(!stlCnt){e.style.display='none';stlAcc=0;return}
+ const d=stlAcc,cr=plCr()>.5;e.style.display='block';
+ e.innerHTML=(d<.05?'🕶 Oculto':d<.5?'👁 Sendo notado':'⚠ Quase descoberto')+(cr?' • agachado':'')+' <span style="display:inline-block;width:46px;height:5px;background:#ffffff33;border-radius:3px;vertical-align:middle"><i style="display:block;height:100%;width:'+Math.round(d*100)+'%;background:'+(d<.5?'#8fd35a':'#ff6b4a')+'"></i></span>';
+ stlAcc=0;stlCnt=0}
+function hitNPC(n,part,dm,E){dm=dm||1;hitOut=null;
+ if(n.hostage||!(n.robber||n.kid||n.isSuspect)){hitCiv(n,part,dm);return}
+ if(mtype==='invest'&&crime==='tráfico de drogas'&&n===suspect&&!n.underFire){msg('Não atire! Prenda o suspeito — a menos que ele atire em vocês primeiro',2400);return 'miss'}
+ if(!n.react)setReact(n);n.revealed=true;if(n.dodge>time&&Math.random()<.4){msg('Ele desviou do tiro!',900);return 'miss'}if(shotCovered(n,E)){msg('Ele está protegido pela cobertura!',700);return 'cover'}
  if(n.hp==null)n.hp=100;
  if(part==='h'){n.hp=0;addPts(3);msg('HEADSHOT! +3',1200)}
- else if(part==='a'){n.hp-=15*dm;if(n.grab)release(n,true);if(n.armed){n.armed=false;dropGun(n);msg('Arma derrubada!',1200)}}
- else if(part==='l'){n.hp-=20*dm;n.down=3.5;n.fireT=Math.max(n.fireT,3.5);msg('Acertou a perna! Ele caiu',1200)}
+ else if(part==='a'){n.hp-=15*dm;if(n.grab)release(n,true);if(n.armed){if(n.hp>0)surrender(n,'arm');else{n.armed=false;dropGun(n)}}}
+ else if(part==='l'){n.hp-=20*dm;if(n.hp>0)surrender(n,'leg')}
  else n.hp-=34*dm;
+ hitOut={o:n.hp<=0?3:(n.surr==='arm'?1:n.surr==='leg'?2:0),hp:Math.max(0,Math.round(n.hp))};
  if(n.hp<=0)neutralize(n,'kill');else hud()}
 const angD=(a,b)=>{const d=a-b;return Math.atan2(Math.sin(d),Math.cos(d))};
 // Calcula para onde o tiro iria. Mirando (MIRA): raio exato do centro da tela (mira) — inclusive na vertical, dá headshot.
 // Sem mirar: tiro na direção da câmera, com uma tolerância pequena em torno do alvo.
+// ---------- VFX de combate: clarão de boca, fumaça, buracos de bala, poeira e faíscas (tudo em pools reutilizáveis) ----------
+const VFX=(()=>{
+ const mk=(w,f)=>{const c=document.createElement('canvas');c.width=c.height=w;f(c.getContext('2d'),w);return new THREE.CanvasTexture(c)};
+ const soft=mk(64,(g,w)=>{const r=g.createRadialGradient(w/2,w/2,0,w/2,w/2,w/2);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(.5,'rgba(255,255,255,.45)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,w,w)});
+ const star=mk(128,(g,w)=>{g.globalCompositeOperation='lighter';const r=g.createRadialGradient(64,64,0,64,64,64);r.addColorStop(0,'rgba(255,255,230,1)');r.addColorStop(.25,'rgba(255,200,90,.9)');r.addColorStop(.6,'rgba(255,120,20,.35)');r.addColorStop(1,'rgba(255,80,0,0)');g.fillStyle=r;g.fillRect(0,0,w,w);
+  g.fillStyle='rgba(255,230,160,.9)';for(let a=0;a<4;a++){g.save();g.translate(64,64);g.rotate(a*Math.PI/4+.2);g.beginPath();g.moveTo(-60,0);g.lineTo(0,-5);g.lineTo(60,0);g.lineTo(0,5);g.closePath();g.fill();g.restore()}});
+ const hole=mk(64,(g,w)=>{g.strokeStyle='rgba(25,22,20,.55)';g.lineWidth=1.4;for(let a=0;a<6;a++){const t=a*1.05+Math.random()*.5,l=14+Math.random()*12;g.beginPath();g.moveTo(32+Math.cos(t)*7,32+Math.sin(t)*7);g.lineTo(32+Math.cos(t)*l,32+Math.sin(t)*l);g.stroke()}
+  const r=g.createRadialGradient(32,32,0,32,32,17);r.addColorStop(0,'rgba(6,6,6,.97)');r.addColorStop(.55,'rgba(14,12,10,.9)');r.addColorStop(.8,'rgba(60,52,44,.5)');r.addColorStop(1,'rgba(60,52,44,0)');g.fillStyle=r;g.beginPath();g.arc(32,32,17,0,7);g.fill()});
+ const spr=(map,add)=>{const m=new THREE.Sprite(new THREE.SpriteMaterial({map,transparent:true,depthWrite:false,blending:add?THREE.AdditiveBlending:THREE.NormalBlending,fog:!add}));m.visible=false;m.renderOrder=add?6:5;scene.add(m);return m};
+ const V={fl:[],pf:[],sp:[],dc:[],fi:0,pi:0,si:0,di:0,sm:0,soft};
+ for(let i=0;i<8;i++)V.fl.push({m:spr(star,true),t:0,l:.06,s:.5});
+ for(let i=0;i<90;i++)V.pf.push({m:spr(soft,false),v:new THREE.Vector3(),t:0,l:1,s0:.1,s1:.4,o:.5,on:false});
+ for(let i=0;i<40;i++)V.sp.push({m:spr(soft,true),v:new THREE.Vector3(),t:0,l:.25,on:false});
+ const dg=new THREE.PlaneGeometry(1,1),dm=new THREE.MeshBasicMaterial({map:hole,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4});
+ for(let i=0;i<70;i++){const m=new THREE.Mesh(dg,dm);m.visible=false;scene.add(m);V.dc.push(m)}
+ return V})();
+const MUZ={1:[0,-.29,.06],2:[0,-.27,.045],3:[0,-.53,.06],4:[0,-.76,.07],5:[0,-.88,.06]},FLS={1:.55,2:.42,3:.45,4:.95,5:.62},_mz=new THREE.Vector3(),_ZZ=new THREE.Vector3(0,0,1),_NN=new THREE.Vector3();
+function muzzleW(av,out){const m=av&&av.wm,t=av&&MUZ[av.wid|0];if(!m||!t||!m.parent)return null;m.updateWorldMatrix(true,false);return m.localToWorld(out.set(t[0],t[1],t[2]))}
+function puff(x,y,z,vx,vy,vz,s0,s1,life,op,col){const p=VFX.pf[VFX.pi=(VFX.pi+1)%VFX.pf.length],m=p.m;m.position.set(x,y,z);p.v.set(vx,vy,vz);p.t=0;p.l=life;p.s0=s0;p.s1=s1;p.o=op;p.on=true;m.material.color.setHex(col);m.material.rotation=Math.random()*6.28;m.material.opacity=op;m.scale.setScalar(s0);m.visible=true}
+function spark(x,y,z,vx,vy,vz,col){const p=VFX.sp[VFX.si=(VFX.si+1)%VFX.sp.length],m=p.m;m.position.set(x,y,z);p.v.set(vx,vy,vz);p.t=0;p.l=.14+Math.random()*.16;p.on=true;m.material.color.setHex(col);m.material.opacity=1;m.scale.setScalar(.05+Math.random()*.04);m.visible=true}
+// Disparo: clarão + fumaça saindo do cano. Devolve a origem do projétil (boca do cano ou, sem arma visível, frente do corpo)
+function muzzleFx(av,x,z,fx,fz){const id=(av&&av.wid)|0,mp=muzzleW(av,_mz),o=mp?mp.clone():new THREE.Vector3(x+fx*.7,1.4,z+fz*.7);
+ if(!id)return o;const R=Math.random,f=VFX.fl[VFX.fi=(VFX.fi+1)%VFX.fl.length],f2=VFX.fl[VFX.fi=(VFX.fi+1)%VFX.fl.length],s=FLS[id]*(.85+R()*.4);
+ f.m.position.copy(o);f.s=s;f.l=f.t=.06;f.m.material.rotation=R()*6.28;f.m.visible=true;
+ f2.m.position.set(o.x+fx*.2,o.y,o.z+fz*.2);f2.s=s*.55;f2.l=f2.t=.05;f2.m.material.rotation=R()*6.28;f2.m.visible=true;
+ VFX.sm++;if((id===3||id===5)&&VFX.sm%2)return o; // armas automáticas: fumaça em metade dos tiros
+ for(let i=0;i<(id===4?3:1);i++)puff(o.x+fx*.1,o.y,o.z+fz*.1,fx*(.7+R()*.9)+(R()-.5)*.35,.35+R()*.35,fz*(.7+R()*.9)+(R()-.5)*.35,.12,.55+R()*.25,.8+R()*.5,.32,0xd2d2d2);
+ return o}
+// Raio 3D contra o cenário (respeita altura dos objetos): devolve ponto, normal da superfície e tipo (chão / objeto baixo / parede)
+function rayWorld(ax,ay,az,bx,by,bz){const dx=bx-ax,dy=by-ay,dz=bz-az,L=Math.hypot(dx,dy,dz)||1,k=Math.ceil(L/.2);
+ const inB=(b,x,y,z)=>y<(b.h==null?99:b.h)&&Math.abs(x-b.x)<b.w/2&&Math.abs(z-b.z)<b.d/2;
+ let skip=null;for(const b of cellOf(ax,az))if(inB(b,ax,ay,az))(skip||(skip=[])).push(b);
+ let px=ax,py=ay,pz=az;
+ for(let i=1;i<=k;i++){const t=i/k,x=ax+dx*t,y=ay+dy*t,z=az+dz*t;
+  if(y<=.03&&py>.03){const u=(py-.03)/(py-y);return{x:px+(x-px)*u,y:.03,z:pz+(z-pz)*u,nx:0,ny:1,nz:0,g:1,low:false}}
+  const a=cellOf(x,z);
+  for(let j=0;j<a.length;j++){const b=a[j];if((skip&&skip.includes(b))||!inB(b,x,y,z))continue;
+   let lo=0,hi=1;for(let r=0;r<5;r++){const m=(lo+hi)/2;if(inB(b,px+(x-px)*m,py+(y-py)*m,pz+(z-pz)*m))hi=m;else lo=m}
+   const hx=px+(x-px)*lo,hy=py+(y-py)*lo,hz=pz+(z-pz)*lo,hh=b.h==null?99:b.h;let nx=0,ny=0,nz=0;
+   if(hh<90&&hy>=hh-.06)ny=1;else{const rx=Math.abs(hx-b.x)/(b.w/2),rz=Math.abs(hz-b.z)/(b.d/2);if(rx>rz)nx=Math.sign(hx-b.x)||1;else nz=Math.sign(hz-b.z)||1}
+   return{x:hx,y:hy,z:hz,nx,ny,nz,g:0,low:b.h!=null&&b.h<2.5}}
+  px=x;py=y;pz=z}
+ return null}
+const rayHit=(ax,ay,az,E,ext)=>{const dx=E.x-ax,dy=E.y-ay,dz=E.z-az,L=Math.hypot(dx,dy,dz)||1,f=1+(ext||0)/L;return rayWorld(ax,ay,az,ax+dx*f,ay+dy*f,az+dz*f)};
+// Impacto no CENÁRIO (parede, chão, objeto): buraco de bala + poeira (+ faíscas em objeto baixo/metal e lascas em parede)
+function envImpact(h){const R=Math.random;
+ const d=VFX.dc[VFX.di=(VFX.di+1)%VFX.dc.length];_NN.set(h.nx,h.ny,h.nz);d.quaternion.setFromUnitVectors(_ZZ,_NN);d.rotateZ(R()*6.28);
+ d.position.set(h.x+h.nx*.015,h.y+h.ny*.015,h.z+h.nz*.015);d.scale.setScalar(.15*(.8+R()*.55));d.visible=true;
+ const col=h.g?0xb59f7a:h.low?0xa9a9a9:0xcfc6b2,n=h.g?5:6;
+ for(let i=0;i<n;i++)puff(h.x+h.nx*.05,h.y+h.ny*.05,h.z+h.nz*.05,h.nx*(.5+R()*1.1)+(R()-.5)*.9,h.ny*(.5+R()*1.1)+R()*.5+(h.g?.9:.15),h.nz*(.5+R()*1.1)+(R()-.5)*.9,.06+R()*.05,.26+R()*.2,.35+R()*.35,.55,col);
+ const ns=h.low?6:h.g?0:3;for(let i=0;i<ns;i++)spark(h.x+h.nx*.03,h.y+h.ny*.03,h.z+h.nz*.03,h.nx*(1.5+R()*3)+(R()-.5)*3,h.ny*(1.5+R()*3)+R()*2.5,h.nz*(1.5+R()*3)+(R()-.5)*3,h.low?0xffd27a:0xfff0d0)}
+// Impacto em PERSONAGEM: lógica separada — só um sopro curto no corpo, sem buraco de bala e sem poeira de parede
+function charHit(E,part){const R=Math.random,n=part==='h'?6:4;for(let i=0;i<n;i++)puff(E.x,E.y,E.z,(R()-.5)*1.6,.2+R()*.9,(R()-.5)*1.6,.07,.24+R()*.12,.28+R()*.18,.5,0xd8cfc6)}
+// ---------- Sangue: gotas com gravidade, névoa vermelha e manchas no chão, sempre no ponto exato do acerto ----------
+const BLOOD=(()=>{
+ const R=Math.random,B={dr:[],di:0,st:[],si:0},
+ tex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),
+  b=(x,y,r)=>{const q=g.createRadialGradient(x,y,0,x,y,r);q.addColorStop(0,'rgba(255,255,255,1)');q.addColorStop(.7,'rgba(255,255,255,.9)');q.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=q;g.beginPath();g.arc(x,y,r,0,7);g.fill()};
+  b(64,64,34);for(let i=0;i<9;i++){const a=R()*6.28,d=22+R()*26;b(64+Math.cos(a)*d,64+Math.sin(a)*d,4+R()*10)}return new THREE.CanvasTexture(c)})(),
+ pg=new THREE.PlaneGeometry(1,1);
+ for(let i=0;i<80;i++){const m=new THREE.Sprite(new THREE.SpriteMaterial({map:VFX.soft,color:0x9a0808,transparent:true,depthWrite:false}));m.visible=false;m.renderOrder=7;scene.add(m);B.dr.push({m,v:new THREE.Vector3(),t:0,l:1.6,on:false})}
+ for(let i=0;i<48;i++){const m=new THREE.Mesh(pg,new THREE.MeshBasicMaterial({map:tex,color:0x6e0505,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}));m.visible=false;scene.add(m);B.st.push({m,t:0,o:.85,on:false})}
+ B.drop=(x,y,z,vx,vy,vz)=>{const d=B.dr[B.di=(B.di+1)%B.dr.length];d.m.position.set(x,y,z);d.v.set(vx,vy,vz);d.t=0;d.on=true;d.m.scale.setScalar(.05+R()*.07);d.m.material.opacity=.95;d.m.visible=true};
+ B.stain=(x,z,sz,o)=>{const q=B.st[B.si=(B.si+1)%B.st.length],m=q.m;m.position.set(x,.025+(B.si%8)*.0005,z);m.rotation.set(-Math.PI/2,0,R()*6.28);m.scale.setScalar(sz);q.o=o;q.t=0;q.on=true;m.material.opacity=o;m.visible=true};
+ return B})();
+function bloodStep(dt){const B=BLOOD;
+ for(const d of B.dr){if(!d.on)continue;d.v.y-=11*dt;d.m.position.addScaledVector(d.v,dt);d.t+=dt;
+  if(d.m.position.y<=.03||d.t>d.l){d.on=false;d.m.visible=false;if(d.m.position.y<=.08)B.stain(d.m.position.x,d.m.position.z,.08+Math.random()*.2,.8)}}
+ for(const q of B.st){if(!q.on)continue;q.t+=dt;if(q.t>30){const u=(q.t-30)/8;q.m.material.opacity=q.o*(1-u);if(u>=1){q.on=false;q.m.visible=false}}}}
+// Sangue no ponto exato do acerto E (dx,dz = direção do tiro; k = intensidade)
+function bloodFx(E,part,dx,dz,k){const R=Math.random,B=BLOOD,n=Math.round((part==='h'?16:11)*(k||1)),x=E.x,y=E.y,z=E.z;
+ for(let i=0;i<n;i++){const f=.8+R()*3.2*(i%3?1:-.35),sd=(R()-.5)*2.2;B.drop(x,y,z,dx*f-dz*sd,.6+R()*2.6,dz*f+dx*sd)}
+ for(let i=0;i<4;i++)puff(x,y,z,dx*(.4+R()*1.2)+(R()-.5)*.8,.1+R()*.7,dz*(.4+R()*1.2)+(R()-.5)*.8,.05,.2+R()*.14,.3+R()*.2,.55,0x8f0b0b);
+ B.stain(x+dx*.5,z+dz*.5,(.25+R()*.2)*(k||1),.85)}
+// ---------- Rendição (só bandidos): arma largada + mãos ao alto (braço atingido) ou queda em ragdoll (perna atingida) ----------
+function ragLive(n,from){ // ragdoll em quem continua vivo (guarda o ragdoll em n.ragRg para levantar na prisão)
+ const m=n.mesh;if(n.sy0!=null)m.scale.y=n.sy0;m.position.y=0;
+ const F=from||pos(),dx=m.position.x-F.x,dz=m.position.z-F.z,dl=Math.hypot(dx,dz)||1,sp=(n.v||0)*.5,ry=m.rotation.y;n.v=0;
+ n.ragRg=ragStart({g:m,parts:n.parts,get lg(){return n.lk&&n.lk.lg}},{v:{x:Math.sin(ry)*sp,y:0,z:Math.cos(ry)*sp},imp:{x:dx/dl*2,y:1.4,z:dz/dl*2}})}
+function surrender(n,how,remote){
+ if(n.surr)return;
+ n.surr=how;n.react='surr';n.revealed=true;n.hold=false;n.underFire=false;n.det=0;n.down=0;n.fireT=99;
+ if(n.grab)release(n,!remote);
+ if(n.armed){n.armed=false;dropGun(n)}
+ holster(n);n.v=0;n.cs=null;n.cv=null;
+ if(how==='leg')ragLive(n);
+ else{if(n.sy0!=null)n.mesh.scale.y=n.sy0;n.mesh.position.y=0}
+ if(!remote)msg(how==='leg'?'Acertou a perna! Ele caiu e se rendeu — prenda-o':'Arma derrubada! Ele se rendeu — prenda-o',2000)}
+function surrStep(n,p,P,dp,dt){
+ if(n.surrEnd&&time>n.surrEnd){surrStand(n);n.surrEnd=0;n.fleeT=time+8;return} // civil ferido: levanta e foge
+ if(n.ragRg)return; // caído no chão: o ragdoll cuida da pose
+ n.v=0;if(dp>=110)return;
+ n.mesh.rotation.y+=wrapA(Math.atan2(P.x-p.x,P.z-p.z)-n.mesh.rotation.y)*Math.min(1,dt*4);
+ walk(n.parts,n.ph,false,dt,0);n.mesh.position.y=n.parts.drop||0;n.mesh.rotation.x=0;
+ const A=n.parts,w=Math.sin(time*9+n.ph)*.05;A.armL.rotation.x=-2.8+w;A.armR.rotation.x=-2.8-w;
+ if(A.armL.elbow){A.armL.elbow.rotation.x=-.3;A.armR.elbow.rotation.x=-.3}}
+function surrStand(n){ // preso: levanta do chão / abaixa os braços
+ if(n.ragRg){ragEnd(n.ragRg.o);n.ragRg=null}
+ if(n.surr){n.surr=0;const A=n.parts;for(const L of[A.armL,A.armR]){L.rotation.x=0;if(L.elbow)L.elbow.rotation.x=0}}}
+// ---------- Civis e reféns: mesma vida invisível e mesmos danos dos bandidos; sangue no corpo; tudo sincronizado na sala ----------
+let hitOut=null; // resultado do último acerto: o 0 dano • 1 braço • 2 perna • 3 morreu (vai para o multiplayer)
+function hitCiv(n,part,dm){
+ if(n.hp==null)n.hp=100;let o=0;
+ if(part==='h')n.hp=0;
+ else if(part==='a'){n.hp-=15*dm;o=1}
+ else if(part==='l'){n.hp-=20*dm;o=2}
+ else n.hp-=34*dm;
+ if(n.hp<=0){hitOut={o:3,hp:0};neutralize(n,'kill');return}
+ if(o&&!n.hostage&&!n.hostageOf)woundCiv(n,o===1?'arm':'leg');else o=0;
+ hitOut={o,hp:Math.round(n.hp)};score-=5;msg(n.hostage?'Refém ferido! -5':'Civil ferido! -5',1400);hud()}
+function woundCiv(n,how){ // braço: mãos ao alto por uns segundos • perna: cai em ragdoll; depois levanta e foge
+ if(n.surr||n.dead)return;
+ n.surr=how;n.surrEnd=time+(how==='leg'?9:4.5);n.hold=false;n.v=0;n.pan=0;n.down=0;
+ if(n.sy0!=null)n.mesh.scale.y=n.sy0;n.mesh.position.y=0;
+ if(how==='leg')ragLive(n)}
+const BPM=new THREE.SpriteMaterial({map:VFX.soft,color:0x7a0505,transparent:true,depthWrite:false,opacity:.92});
+function stainNPC(n,E,obj,dx,dz){ // mancha de sangue presa à parte do corpo atingida (acompanha o ragdoll)
+ if(!n||!n.mesh)return;
+ const host=obj&&obj.parent?obj:n.mesh,sp=new THREE.Sprite(BPM),pt=new THREE.Vector3(E.x-dx*.03,E.y,E.z-dz*.03);
+ host.updateWorldMatrix(true,false);host.worldToLocal(pt);sp.position.copy(pt);sp.scale.setScalar(.12+Math.random()*.1);sp.raycast=function(){}; // não atrapalha a mira
+ host.add(sp);(n.bp=n.bp||[]).push(sp);
+ if(n.bp.length>8){const o=n.bp.shift();if(o.parent)o.parent.remove(o)}}
+function bloodPool(rg){setTimeout(()=>{const f=rg.focus;BLOOD.stain(f.x,f.z,.7+Math.random()*.3,.85)},1300)} // poça sob o corpo depois que assenta
+function netHit(n,E,part,dx,dz,bk,mel){
+ if(!roomCode||!hitOut||!n||!n.mesh){hitOut=null;return}
+ const p=n.mesh.position,f=v=>+v.toFixed(2);
+ send({t:'hit',k:n.hostage?'h':(n.robber||n.kid||n.isSuspect)?'b':'c',fl:n.robber?'r':n.kid?'k':n.isSuspect?'s':'',p:part,x:+p.x.toFixed(1),z:+p.z.toFixed(1),ex:f(E.x),ey:f(E.y),ez:f(E.z),dx:f(dx),dz:f(dz),bk,o:hitOut.o,hp:hitOut.hp,m:mel?1:0});
+ hitOut=null}
+function remoteKill(n,from){
+ if(n.dead||n.arrested)return;
+ n.t0=performance.now();if(n.tied)untie(n);if(n.grab)release(n,false);
+ n.dead=true;ragKillNPC(n,from)}
+// Acerto de um parceiro: mesmo sangue e mesmo resultado no NPC mais próximo do ponto (civis andam sozinhos em cada tela; se não achar, cria um ali)
+function hitRemote(m){
+ const part=['h','a','l','b'].includes(m.p)?m.p:'b',x=+m.x||0,z=+m.z||0,dx=+m.dx||0,dz=+m.dz||0,E=new THREE.Vector3(+m.ex||x,+m.ey||1.3,+m.ez||z);
+ bloodFx(E,part,dx,dz,+m.bk||1);
+ const P=pos();if(Math.hypot(x-P.x,z-P.z)>150)return;
+ const k=m.k;let n=null,bd=k==='c'?6:10;
+ for(const q of npcs){if(q.dead||q.arrested||q.boarded||q.custody)continue;
+  if((q.hostage?'h':(q.robber||q.kid||q.isSuspect)?'b':'c')!==k)continue;
+  const d=Math.hypot(q.mesh.position.x-x,q.mesh.position.z-z);if(d<bd){bd=d;n=q}}
+ if(!n){if(k!=='c')return;n=spawnNPC([x,z])}
+ stainNPC(n,E,null,dx,dz);n.hp=+m.hp;n.revealed=true;
+ const o=m.o|0;
+ if(o===3){remoteKill(n,{x:x-dx*3,z:z-dz*3});return}
+ if(k==='b'){if(o===1||o===2)surrender(n,o===1?'arm':'leg',true);else{if(!n.react)setReact(n);if(m.m)n.down=Math.max(n.down||0,1.1)}}
+ else if(k==='c'){if(o===1||o===2)woundCiv(n,o===1?'arm':'leg');else if(m.m)n.down=Math.max(n.down||0,2.5)}}
+function vfxStep(dt){
+ for(const f of VFX.fl){if(!f.m.visible)continue;f.t-=dt;if(f.t<=0){f.m.visible=false;continue}const u=1-f.t/f.l;f.m.scale.setScalar(f.s*(.7+.6*u));f.m.material.opacity=1-u*.8}
+ for(const p of VFX.pf){if(!p.on)continue;p.t+=dt;const u=p.t/p.l;if(u>=1){p.on=false;p.m.visible=false;continue}
+  const k=Math.max(0,1-2.4*dt);p.v.multiplyScalar(k);p.m.position.addScaledVector(p.v,dt);p.m.scale.setScalar(p.s0+(p.s1-p.s0)*Math.sqrt(u));p.m.material.opacity=p.o*Math.pow(1-u,1.4)}
+ for(const p of VFX.sp){if(!p.on)continue;p.t+=dt;const u=p.t/p.l;if(u>=1||p.m.position.y<.02){p.on=false;p.m.visible=false;continue}
+  p.v.y-=14*dt;p.m.position.addScaledVector(p.v,dt);p.m.material.opacity=1-u}
+ bloodStep(dt)}
 function aimShot(){
  const P=player.position;
  const live=npcs.filter(n=>!n.dead&&!n.arrested&&!n.boarded&&!n.cop&&!n.custody&&n.mesh.visible&&Math.hypot(n.mesh.position.x-P.x,n.mesh.position.z-P.z)<70);
- let tgt=null,part='b',E=null;
+ let tgt=null,part='b',E=null,obj=null;
  if(aimOn){
   rc.setFromCamera({x:0,y:0},camera);
   const o=rc.ray.origin.clone(),d=rc.ray.direction.clone(),s0=(P.x-o.x)*d.x+(1.4-o.y)*d.y+(P.z-o.z)*d.z;
   for(const h of rc.intersectObjects(live.map(n=>n.mesh),true)){
    if(h.distance<s0-.4)continue;
    let ob=h.object;while(ob&&!live.some(n=>n.mesh===ob))ob=ob.parent;const n=ob&&live.find(q=>q.mesh===ob);
-   if(n&&!blocked(P.x,P.z,h.point.x,h.point.z)){tgt=n;E=h.point.clone();part=h.object.userData.p||'b';break}}
+   if(n&&!blocked(P.x,P.z,h.point.x,h.point.z)){tgt=n;E=h.point.clone();part=h.object.userData.p||'b';obj=h.object;break}}
   if(!tgt){ // ajuda mínima, só contra bandidos (nunca civis/reféns)
    let bd=.05;const v=new THREE.Vector3();
    for(const n of live){if(!(n.robber||n.kid||n.isSuspect)||n.hostage||n.hostageOf)continue;v.copy(n.mesh.position);v.y=1.3;v.project(camera);if(v.z>1)continue;
@@ -765,7 +1030,7 @@ function aimShot(){
    if(ang<Math.atan2(.6,dd)+.04&&ang<best&&!blocked(P.x,P.z,p.x,p.z)){best=ang;tgt=n;E=p.clone();E.y=1.3}}
   if(!tgt){const fx=Math.sin(fy),fz=Math.cos(fy);let t=45;for(let s=1;s<=45;s+=.7){if(collidesH(P.x+fx*s,P.z+fz*s,.05)){t=s;break}}E=new THREE.Vector3(P.x+fx*t,1.4,P.z+fz*t)}
  }
- return{tgt,part,E}}
+ return{tgt,part,E,obj}}
 function fire(){
  if(faint||driving||editApp||time<fireCd||rollEnd>time)return;
  const w=WEAPONS[eq];
@@ -775,9 +1040,10 @@ function fire(){
  blindOff=(cov&&!aimOn)?(Math.random()-.5)*.75:0;const s=aimShot(),P=player.position;blindOff=0;let fx=s.E.x-P.x,fz=s.E.z-P.z;const l=Math.hypot(fx,fz)||1;fx/=l;fz/=l;
  player.rotation.y=Math.atan2(fx,fz);
  let tg=s.tgt;if(tg&&Math.hypot(tg.mesh.position.x-P.x,tg.mesh.position.z-P.z)>w.range)tg=null;
- tracer(new THREE.Vector3(P.x+fx*.7,1.5,P.z+fz*.7),s.E);ejectCasing(P,fx,fz);
- if(tg)hitNPC(tg,s.part,w.dmg);
- else if(gcar&&gcar.go&&!mDone){const g=gcar.g.position,ax=P.x,az=P.z,dx=s.E.x-ax,dz=s.E.z-az,L2=dx*dx+dz*dz||1,u=Math.max(0,Math.min(1,((g.x-ax)*dx+(g.z-az)*dz)/L2));if(Math.hypot(ax+dx*u-g.x,az+dz*u-g.z)<2.3&&Math.hypot(g.x-ax,g.z-az)<=w.range+2)gcarDamage(w.dmg*14)}
+ const org=muzzleFx(pl,P.x,P.z,fx,fz),eyeY=1.55-.5*plCr();let end=s.E,imp=null;ejectCasing(P,fx,fz);
+ if(tg){const hr=hitNPC(tg,s.part,w.dmg,s.E);if(hr==='cover')imp=rayHit(P.x,eyeY,P.z,s.E,.8);else if(hr==='miss')imp=rayHit(P.x,eyeY,P.z,s.E,25);else{bloodFx(s.E,s.part,fx,fz);stainNPC(tg,s.E,s.obj,fx,fz);netHit(tg,s.E,s.part,fx,fz,1)}}
+ else if(gcar&&gcar.go&&!mDone){const g=gcar.g.position,ax=P.x,az=P.z,dx=s.E.x-ax,dz=s.E.z-az,L2=dx*dx+dz*dz||1,u=Math.max(0,Math.min(1,((g.x-ax)*dx+(g.z-az)*dz)/L2));if(Math.hypot(ax+dx*u-g.x,az+dz*u-g.z)<2.3&&Math.hypot(g.x-ax,g.z-az)<=w.range+2)gcarDamage(w.dmg*14)} else imp=rayHit(P.x,eyeY,P.z,s.E,.8);
+ if(imp){end=new THREE.Vector3(imp.x,imp.y,imp.z);envImpact(imp)}tracer(org,end);
  if(!ammo[eq])msg('Acabou a munição da '+w.s+'!',2000);
  updWpnBtn()}
 // cassetete: só acerta quem está a menos de 2,4 m
@@ -792,11 +1058,15 @@ function melee(){
  meleeHit(best)}
 function meleeHit(n){
  if(n.hostage){msg('Cuidado com o refém!',1200);return}
- if(!(n.robber||n.kid||n.isSuspect)){score-=10;n.down=2.5;msg('Você agrediu um civil! -10 pontos',1600);hud();return}
+ const p=n.mesh.position,Q=player.position,d=Math.hypot(p.x-Q.x,p.z-Q.z)||1,ux=(p.x-Q.x)/d,uz=(p.z-Q.z)/d,E=new THREE.Vector3(p.x-ux*.25,1.35,p.z-uz*.25);
+ bloodFx(E,'b',ux,uz,.6);stainNPC(n,E,null,ux,uz);
+ if(!(n.robber||n.kid||n.isSuspect)){if(n.hp==null)n.hp=100;n.hp-=34;score-=10;n.down=2.5;msg('Você agrediu um civil! -10 pontos',1600);
+  hitOut={o:n.hp<=0?3:0,hp:Math.max(0,Math.round(n.hp))};netHit(n,E,'b',ux,uz,.6,1);if(n.hp<=0)neutralize(n,'kill');else hud();return}
  n.revealed=true;if(n.hp==null)n.hp=100;
  n.hp-=34;n.down=Math.max(n.down||0,1.1);n.fireT=Math.max(n.fireT||0,1.5);
  if(n.grab)release(n,true);
  if(n.armed&&Math.random()<.35){n.armed=false;dropGun(n);msg('Arma derrubada!',1200)}
+ hitOut={o:0,hp:Math.max(1,Math.round(n.hp))};netHit(n,E,'b',ux,uz,.6,1);
  if(n.hp<=0)neutralize(n,'arrest');else hud()}
 // Armas dos bandidos (mesmos modelos/empunhadura do jogador): b = tiros por rajada, ci = intervalo na rajada, g = pausa [base, aleatório],
 // er = alcance de combate, ac = imprecisão (maior = erra mais), dm = dano, pel = projéteis por disparo (escopeta)
@@ -807,13 +1077,18 @@ function pickEW(n){const r=Math.random(),s=mStars;if(n.isSuspect)return r<.6?2:r
 function giveWeapon(n){if(n.wk==null)n.wk=pickEW(n);setHandWeapon(n,n.wk);n._gt=0}
 function holster(n){if(n.wm){if(n.wm.parent)n.wm.parent.remove(n.wm);n.wm=null}n.wid=null;if(n._gp)resetGrip(n)}
 function bandFire(n,m){const W=ew(n);n.burst=(n.burst||0)+1;if(n.burst>=W.b){n.burst=0;n.fireT=(W.g[0]+Math.random()*W.g[1])*(m||1)}else n.fireT=W.ci+Math.random()*.02;enemyFire(n)} // metralhadora/fuzil: rajada • pistola/revólver: tiros espaçados
-function enemyFire(n){const W=ew(n);n.underFire=true;n.revealed=true;n.fireAim=time+.6;if(!n.react)n.react='fight';const p=n.mesh.position,P=pos();shot={x:p.x,z:p.z,t:time};
+function enemyFire(n){const W=ew(n);n.underFire=true;n.revealed=true;n.fireAim=time+.6;if(!n.react)n.react='fight';const p=n.mesh.position,P=pos();shot={x:p.x,z:p.z,t:time};noiseE={x:p.x,z:p.z,t:time,n:n};
  const d=Math.hypot(P.x-p.x,P.z-p.z)||1,ux=(P.x-p.x)/d,uz=(P.z-p.z)/d,
   k=(W.pel?(.5+d*.09):(.8+d*.05))*(1.55-.1*mStars)*(W.pel?1:W.ac)*(n.blind?2.4:1)*(1+.04*Math.min(6,pSpd||0)), // menos precisos: o espalhamento cresce com a distância e se você se move
   rad=driving?1.4:(aimOn||time-lastFireT<.5)?.95:(crouch||cov)?.65:.9;let any=false;
+ const vOn=d<110,org=vOn?muzzleFx(n,p.x,p.z,ux,uz):new THREE.Vector3(p.x+ux*.7,1.5,p.z+uz*.7);
  for(let i=0;i<(W.pel||1);i++){const ox=(Math.random()-.5)*2*k,oz=(Math.random()-.5)*2*k; // escopeta: vários projéteis por disparo
-  tracer(new THREE.Vector3(p.x+ux*.7,1.5,p.z+uz*.7),new THREE.Vector3(P.x+ox,1.4,P.z+oz),0xff6644);
-  if(Math.hypot(ox,oz)<rad){any=true;const dm=(W.pel?4.5+Math.random()*3.5:7+Math.random()*6)*(W.pel?1:W.dm);if(driving&&carHp>0)carDamage(dm*.8);else if(!(Math.random()<coverBlock(p.x,p.z)))hurt(dm)}}
+  const T=new THREE.Vector3(P.x+ox,1.4,P.z+oz);let end=T,imp=null,hitPl=false;
+  if(Math.hypot(ox,oz)<rad){any=true;const dm=(W.pel?4.5+Math.random()*3.5:7+Math.random()*6)*(W.pel?1:W.dm);
+   if(driving&&carHp>0){carDamage(dm*.8);hitPl=true}else if(!bodyShielded(p,ux,uz)){hurt(dm);hitPl=true}else if(vOn)imp=rayHit(p.x,1.5,p.z,T,.8)} // protegido: o tiro marca a cobertura
+  else if(vOn)imp=rayHit(p.x,1.5,p.z,T,28); // errou: a bala segue e marca o cenário atrás
+  if(imp){end=new THREE.Vector3(imp.x,imp.y,imp.z);envImpact(imp)}else if(hitPl&&!driving&&vOn)charHit(T,'b');
+  tracer(org,end,0xff6644)}
  if(!W.pel&&d<40)ejectCasing({x:p.x,z:p.z},ux,uz);
  if(any)return;
  if(hostageN&&!hostageN.dead&&!mDone&&inside==='kid'&&Math.hypot(hostageN.mesh.position.x-P.x,hostageN.mesh.position.z-P.z)<8&&Math.random()<.04*mStars)neutralize(hostageN,'kill');
@@ -1148,7 +1423,7 @@ function coverAI(n,p,P,dp,dt){if(n.grab||n.down>0)return -1;if(n.sy0==null)n.sy0
   if(time>n.csT&&!(time-lastFireT<.8&&time<n.supMax)){n.cs='peek';n.csT=time+1.1+Math.random()*1.1;n.fireT=Math.min(n.fireT,.15)}else return 0} // sob fogo cerrado fica abaixado (até 3 s)
  if(n.cs==='peek'){n.mesh.scale.y=n.sy0;
   if(!q.low&&q.pp&&Math.hypot(q.pp.x-p.x,q.pp.z-p.z)>.6){n.tgt.set(q.pp.x,0,q.pp.z);n.timer=.4;return 4.4}
-  face();n.fireAim=time+.3;n.fireT-=dt;if(n.fireT<=0&&dp<ew(n).er*1.4&&!blocked(p.x,p.z,P.x,P.z))bandFire(n,.8);
+  face();n.fireAim=time+.3;n.fireT-=dt;if(n.fireT<=0&&dp<ew(n).er*1.4&&seeBody(n,p,P))bandFire(n,.8);
   if(time>n.csT)n.cs='back';return 0}
  if(n.cs==='back'){if(Math.hypot(q.x-p.x,q.z-p.z)>.8){n.tgt.set(q.x,0,q.z);n.timer=.4;return 5}n.cs='hide';n.csT=time+.7+Math.random()*1+((n.hp==null?100:n.hp)<40?1.2:0);n.supMax=time+3}
  return 0}
@@ -1254,11 +1529,12 @@ function physStep(dt){
  for(let i=ragAct.length-1;i>=0;i--){const rg=ragAct[i];if(!rg.g.parent){ragDrop(rg);continue}ragApply(rg);if(rg.sleep)ragDrop(rg)}}
 // --- Gatilhos: quem morreu ou desmaiou vira boneco de pano ---
 function ragKillNPC(n,from){
+ if(n.ragRg){const rg=n.ragRg;n.ragRg=null;rg.sleep=false;rg.t=0;rg.still=0;if(ragAct.indexOf(rg)<0)ragAct.push(rg);bloodPool(rg);return rg}
  const m=n.mesh;if(n.sy0!=null)m.scale.y=n.sy0;if(n.down>0)m.position.y=0;
  if(n.armed){n.armed=false;dropGun(n)}
  const F=from||pos(),dx=m.position.x-F.x,dz=m.position.z-F.z,dl=Math.hypot(dx,dz)||1,w=WEAPONS[eq]||{},f=from?3:(w.melee?2:3+1.5*(w.dmg||1)),
   sp=n.down>0?0:(n.v||0),ry=m.rotation.y;
- return ragStart({g:m,parts:n.parts,get lg(){return n.lk&&n.lk.lg}},{v:{x:Math.sin(ry)*sp,y:0,z:Math.cos(ry)*sp},imp:{x:dx/dl*f,y:1.8+f*.25,z:dz/dl*f}})}
+ const rg=ragStart({g:m,parts:n.parts,get lg(){return n.lk&&n.lk.lg}},{v:{x:Math.sin(ry)*sp,y:0,z:Math.cos(ry)*sp},imp:{x:dx/dl*f,y:1.8+f*.25,z:dz/dl*f}});bloodPool(rg);return rg}
 function ragFaintPlayer(){const y=player.rotation.y;
  ragStart(pl,{v:{x:pvx||0,y:0,z:pvz||0},imp:{x:-Math.sin(y)*1.5,y:1.2,z:-Math.cos(y)*1.5}})}
 function ragFaintRemote(r){if(r.rag)return;ragStart(r,{v:{x:r.vx||0,y:0,z:r.vz||0},imp:{x:0,y:1,z:0}})}
@@ -1266,7 +1542,7 @@ function ragCorpse(b){ // cadáver de cena de crime: já nasce caído e assentad
  const a=Math.random()*6.283;ragStart(b,{imp:{x:Math.sin(a)*2,y:1.5,z:Math.cos(a)*2}});ragSettle(b.rag,360)}
 // ---------- /Física ----------
 function loop(){
- requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.1);time+=dt;fc++;updRemotes(dt);updSvc(dt);if(shootHeld&&WEAPONS[eq].auto)fire();
+ requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.1);time+=dt;fc++;updRemotes(dt);updSvc(dt);vfxStep(dt);if(shootHeld&&WEAPONS[eq].auto)fire();
  {const em=$('menu').style.display==='flex'&&$('menu').classList.contains('ap');if(editApp&&!em){editApp=false;document.body.classList.remove('edit');$('menu').classList.remove('ap');yawT=camYaw=edSave.y;pitchT=camPitch=edSave.p}}
  aimOn=aim&&!driving&&!editApp&&!faint;if(aimOn&&cov&&!cov.low&&!cov.edge){aimOn=false;if(time>aimMsgT){aimMsgT=time+2.5;msg('Vá até a ponta da parede para mirar',1400)}}
  let ix=joy.x,iy=joy.y;if(keys.w||keys.arrowup)iy-=1;if(keys.s||keys.arrowdown)iy+=1;if(keys.a||keys.arrowleft)ix-=1;if(keys.d||keys.arrowright)ix+=1;
@@ -1336,13 +1612,13 @@ function loop(){
  const P=pos();
  if(!mDone&&mtype==='bank'){
   if(phase==='wait'){if(!bankPause())timeLeft-=dt;if(timeLeft<=20&&!bankWarn){bankWarn=true;msg('Os criminosos estão se preparando para fugir!',2500)}if(timeLeft<=0)startEscape()}
-  else{escT+=dt;const live=robbers.filter(r=>!r.dead&&!r.arrested);
-   if(!gcar.go&&(escT>8||(escT>5&&live.every(r=>r.boarded)))){live.forEach(r=>{r.boarded=true;r.mesh.visible=false});gcar.go=true;gcar.life=150-15*mStars;msg('Eles fugiram de carro! Persiga, atire ou bloqueie!',3000)}
+  else{escT+=dt;const live=robbers.filter(r=>!r.dead&&!r.arrested&&!r.surr);
+   if(!gcar.go&&live.length&&(escT>8||(escT>5&&live.every(r=>r.boarded)))){live.forEach(r=>{r.boarded=true;r.mesh.visible=false});gcar.go=true;gcar.life=150-15*mStars;msg('Eles fugiram de carro! Persiga, atire ou bloqueie!',3000)}
    if(gcar.go){gcarStep(dt);
     if(driving&&Math.hypot(car.g.position.x-gcar.g.position.x,car.g.position.z-gcar.g.position.z)<4.5){gcar.go=false;endMission(true,'Fuga bloqueada! Criminosos presos! +25 pontos',25)}
     else if(gcar.exit&&(Math.abs(gcar.g.position.x)>B-6||Math.abs(gcar.g.position.z)>B-6))endMission(false,'Os criminosos fugiram da cidade! Missão perdida')}}}
  if(!mDone&&mtype==='kid'&&hostageN&&!hostageN.fleeing){if(!kidPause())timeLeft-=dt;if(timeLeft<=0)neutralize(hostageN,'kill')}
- near=null;let nd=3.4;const galert=npcs.some(r=>(r.robber||r.kid)&&r.react==='fight'&&!r.dead&&!r.arrested);
+ near=null;let nd=3.4;
  for(const n of npcs){if(n.custody){const p=n.mesh.position,own=!n.remoteBy,rr=own?null:remotes[n.remoteBy];if(!own&&!rr){walk(n.parts,n.ph,false);continue}
   const T=own?P:rr.g.position,inCar=own?driving:rr.drv,dx=T.x-p.x,dz=T.z-p.z,dd=Math.hypot(dx,dz);let mv=false;n.inCar=inCar;
   if(inCar){p.x=T.x;p.z=T.z;n.mesh.visible=false}else{n.mesh.visible=true;if(dd>2.5){const nx=p.x+dx/dd*5.5*dt,nz=p.z+dz/dd*5.5*dt;if(!collides(nx,p.z,.5)){p.x=nx;mv=true}if(!collides(p.x,nz,.5)){p.z=nz;mv=true}n.mesh.rotation.y=Math.atan2(dx,dz)}}
@@ -1354,18 +1630,19 @@ function loop(){
   if(dp<40){if(!n.lk)lookNPC(n)}else if(dp>70&&n.lk)stripLook(n);
   n.mesh.visible=dp<170; // longe demais: nem desenha (mais NPCs sem pesar)
   const crim=n.robber||n.kid||n.isSuspect,bld=crim&&!esc&&p.x>B; // bld: bandido dentro de prédio — só se move para se abrigar
+  if(n.surr){surrStep(n,p,P,dp,dt);if(dp<nd&&!driving&&!riding&&!n.cop){nd=dp;near=n}continue}
   if(n.armed){if(n.wid==null)giveWeapon(n)}else if(n.wm)holster(n); // arma só aparece na mão enquanto está armado
-  if(crim&&!esc){if(!n.react&&!n.hostage&&(dp<9||((n.robber||n.kid)&&dp<30&&!blocked(p.x,p.z,P.x,P.z))))setReact(n); // vê o jogador de frente: reage
-   if(!n.react&&(n.robber||n.kid)&&dp<45&&(time-lastFireT<1.2||(galert&&dp<45)||(n.lair&&inside==='drug'&&time-lairT>1.2+(n.ph%1.6))||(n.inBank&&inside==='bank'&&time-bankT>1.2+(n.ph%1.6))))setReact(n,'fight'); // ouvem tiros, colega em combate ou invasão
+  if(crim&&!esc){if(!n.react&&!n.hostage)stealthStep(n,p,P,dp,dt,bld); // gatilho de alerta: só visão (cone + linha livre) ou tiro ouvido
    if(n.react&&!bld&&time-lastFireT<.7&&dp<45&&!(n.dodge>time)){n.dodge=time+.7;n.dodgeDir=Math.random()<.5?1:-1}}
   if(n.down>0){n.down-=dt;n.mesh.position.y=n.down>0?-.6:0;if(dp<nd&&!driving&&!riding&&!n.cop){nd=dp;near=n}continue}
   const cvSp=(crim&&n.armed&&!esc&&dp<Math.min(45,ew(n).er*1.6+8)&&(n.react==='fight'||n.underFire))?coverAI(n,p,P,dp,dt):-1;if(cvSp<0){if(n.sy0!=null&&n.mesh.scale.y!==n.sy0)n.mesh.scale.y=n.sy0;if(n.cs){n.cs=null;n.cv=null}}
   if(cvSp>=0)sp=cvSp;
   else if(n.fleeing){sp=5.6;n.tgt.set(n.exit.x,0,n.exit.z);n.timer=1;if(Math.hypot(p.x-n.exit.x,p.z-n.exit.z)<2||time>n.fleeEnd){n.boarded=true;n.mesh.visible=false;continue}} // refém solto corre para fora do lugar
-  else if(n.armed&&!esc&&dp<(n.robber||n.kid?ew(n).er:20)&&!blocked(p.x,p.z,P.x,P.z)){sp=0;n.fireAim=time+.3;n.mesh.rotation.y=Math.atan2(P.x-p.x,P.z-p.z);if(n.react&&n.dodge>time){const l=dp||1;sp=2.8;n.tgt.set(p.x-(P.z-p.z)/l*n.dodgeDir*4,0,p.z+(P.x-p.x)/l*n.dodgeDir*4);n.timer=.5}if(n.grab){n.grabT-=dt;const c=n.grab;if(c.dead)n.grab=null;else{c.mesh.position.set(p.x+Math.sin(n.mesh.rotation.y)*.9,0,p.z+Math.cos(n.mesh.rotation.y)*.9);if(n.grabT<=0)killCiv(n)}}else{if(!n.grabTried){n.grabTried=true;grab(n)}n.fireT-=dt;if(n.fireT<=0)bandFire(n,(n.lair?.75:1)*(1.1-.1*mStars))}}
+  else if(n.armed&&!esc&&dp<(n.robber||n.kid?ew(n).er:20)&&seeBody(n,p,P)){sp=0;n.fireAim=time+.3;n.mesh.rotation.y=Math.atan2(P.x-p.x,P.z-p.z);if(n.react&&n.dodge>time){const l=dp||1;sp=2.8;n.tgt.set(p.x-(P.z-p.z)/l*n.dodgeDir*4,0,p.z+(P.x-p.x)/l*n.dodgeDir*4);n.timer=.5}if(n.grab){n.grabT-=dt;const c=n.grab;if(c.dead)n.grab=null;else{c.mesh.position.set(p.x+Math.sin(n.mesh.rotation.y)*.9,0,p.z+Math.cos(n.mesh.rotation.y)*.9);if(n.grabT<=0)killCiv(n)}}else{if(!n.grabTried){n.grabTried=true;grab(n)}n.fireT-=dt;if(n.fireT<=0)bandFire(n,(n.lair?.75:1)*(1.1-.1*mStars))}}
   else if(esc){n.tgt.copy(gcar.g.position);n.timer=9;sp=4.5;if(Math.hypot(p.x-gcar.g.position.x,p.z-gcar.g.position.z)<2.8){n.boarded=true;n.mesh.visible=false;continue}}
   else if((n.robber||n.kid)&&n.react==='fight'&&n.armed&&dp<60&&!n.grab&&!n.hostageOf&&!bld){sp=n.lair?5:4.4;n.tgt.set(P.x,0,P.z);n.timer=.35} // avançam até ter linha de tiro
   else if(n.hold||bld)sp=0; // dentro de prédio: não foge nem vaga; só o coverAI move o bandido (para se esconder)
+  else if(!crim&&n.fleeT>time){const l=Math.hypot(p.x-P.x,p.z-P.z)||1;sp=4.4;n.pan=time+.3;n.tgt.set(p.x+(p.x-P.x)/l*10,0,p.z+(p.z-P.z)/l*10);n.timer=.4} // civil ferido: foge mancando
   else if(!crim&&!n.cop&&!n.victim&&!n.lair&&!n.hostage&&!inside&&shot&&time-shot.t<4.5&&Math.hypot(p.x-shot.x,p.z-shot.z)<34){const l=Math.hypot(p.x-shot.x,p.z-shot.z)||1,ax=(p.x-shot.x)/l,az=(p.z-shot.z)/l,zz=Math.sin(time*2+n.ph)*3;n.pan=time+1.2;sp=5.6;n.tgt.set(p.x+ax*12-az*zz,0,p.z+az*12+ax*zz);n.timer=.4} // civil perto do tiroteio: foge em pânico
   else if(crim&&n.react==='flee'&&dp<30){sp=5.2;const l=dp||1,zz=Math.sin(time*2.5+n.ph)*4+(n.dodge>time?n.dodgeDir*3:0);n.tgt.set(p.x+(p.x-P.x)/l*10-(P.z-p.z)/l*zz,0,p.z+(p.z-P.z)/l*10+(P.x-p.x)/l*zz);n.timer=.3}
   n.timer-=dt;if(n.timer<=0){n.tgt.set(p.x+(Math.random()-.5)*30,0,p.z+(Math.random()-.5)*30);n.timer=3+Math.random()*4}
@@ -1378,6 +1655,7 @@ function loop(){
    if(n.wm){n._rx=n.mesh.rotation.x;poseArm(n,n.fireAim>time,0)} // segura a arma com as duas mãos (mesma empunhadura do jogador)
    if(n.pan>time){const P2=n.parts,w=Math.sin(time*10+n.ph)*.3;P2.armL.rotation.x=-2.75+w;P2.armR.rotation.x=-2.75-w;if(P2.armL.elbow){P2.armL.elbow.rotation.x=-.25;P2.armR.elbow.rotation.x=-.25}}}}
   if(dp<nd&&!driving&&!riding&&!n.cop&&!n.fleeing){nd=dp;near=n}}
+ stlHud();
  const pr=$('prompt');if(near){pr.style.display='block';pr.textContent=(near.victim&&!victimTalked)?'Vítima do assalto • toque em FALAR':(near.bh||(near.hostage&&near.tied))?'Refém amarrado • toque em SOLTAR para libertar':descN(near)}else pr.style.display='none';
  {const ab=$('arrest'),tx=(near&&(near.bh||(near.hostage&&near.tied)))?'SOLTAR':'PRENDER';if(ab.textContent!==tx)ab.textContent=tx}
  let cd=1e9;
@@ -1395,7 +1673,7 @@ function loop(){
  if(n.bar){n.bar.visible=en;if(en){const p=n.mesh.position,r=Math.max(.001,(n.hp==null?100:n.hp)/100),f=n.bar.userData.f;n.bar.position.set(p.x,n.mesh.scale.y*2.7+p.y,p.z);n.bar.quaternion.copy(camera.quaternion);f.scale.x=r;f.position.x=-.5*(1-r)}}}
  camUpdate(dt,P);if(aimOn&&(fc&3)===0)$('xh').style.borderColor=aimShot().tgt?'#ff5a5a':'#ffffffcc';
  sky.position.copy(camera.position);sun.position.set(P.x+50,52,P.z+30);sun.target.position.set(P.x,0,P.z);
- gps();ctxUpdate();sendPres();updCarFx();updTraffic(dt);carVsPeds();physStep(dt);{const yw=player.rotation.y,ox=Math.sin(yw)*vOff.z+covSh.x,oz=Math.cos(yw)*vOff.z+covSh.z,pp=player.position;pp.x+=ox;pp.y+=vOff.y;pp.z+=oz;renderer.render(scene,camera);pp.x-=ox;pp.y-=vOff.y;pp.z-=oz}
+ gps();ctxUpdate();sendPres();updCarFx();updWheels(dt);updTraffic(dt);carVsPeds();physStep(dt);{const yw=player.rotation.y,ox=Math.sin(yw)*vOff.z+covSh.x,oz=Math.cos(yw)*vOff.z+covSh.z,pp=player.position;pp.x+=ox;pp.y+=vOff.y;pp.z+=oz;renderer.render(scene,camera);pp.x-=ox;pp.y-=vOff.y;pp.z-=oz}
 }
 // ---------- Conta, social e multiplayer (servidor próprio) ----------
 let aim=false,nick='',myKey='',friends=[],roomCode='',roomMembers=[],remotes={},playing=false,offline=false,lastPres=0,ws=null,authRes=null,reconT=null,noRecon=false,token=null,entering=false;
@@ -1460,6 +1738,7 @@ function onMsg(m){switch(m.t){
  case 'mis':{if(!m.o||!TN[m.o.t])break;toWorld(HQD.x,-22);genOffers();startSeeded({t:m.o.t,s:Math.min(3,Math.max(1,+m.o.s||1))},+m.sd||1);msg(sf(m.from)+' iniciou uma missão da sala!',2500);break}
  case 'carhp':carHp=Math.max(0,Math.min(100,+m.h||0));hud();break;
  case 'arr':arrRemote(m);break;
+ case 'hit':hitRemote(m);break;
  case 'dlv':{const by=String(m.by||'').toLowerCase();for(const n of npcs)if(n.custody&&n.remoteBy===by&&Math.hypot(n.mesh.position.x-HQD.x,n.mesh.position.z-HQD.z)<14){n.custody=false;n.delivered=true;n.mesh.visible=false}break}
  case 'gdmg':gcarDamage(+m.d||0,true);break;
  case 'tow':{if(m.done)finishTow();else startTow(+m.sec||TOW_T,false);break}
@@ -1669,10 +1948,23 @@ function flash(o){const on=Math.floor(time*6)%2;o.lights[0].material.color.set(o
 // --- Desmaio e ambulância ---
 function faintStart(){if(faint)return;if(driving)leaveCar(false);aim=false;$('aimb').style.background='#6e7681';cov=null;crouch=false;cs=0;player.visible=true;
  faint={t0:time,called:false,onboard:false};ragFaintPlayer();
- if(!mDone&&allDown())endMission(false,Object.keys(remotes).length?'Todos os policiais caíram! Missão perdida':'Você desmaiou! Missão perdida');else msg(mDone?'Você desmaiou! A ambulância será acionada…':'Você desmaiou! Seus parceiros seguem na missão.',3000);
+ if(!mDone&&allDown())endMission(false,Object.keys(remotes).length?'Todos os policiais caíram! Missão perdida':'Você desmaiou! Missão perdida');else msg(roomCode?'Você desmaiou! Chame a ambulância pelo 📱 para voltar à missão':mDone?'Você desmaiou! A ambulância será acionada…':'Você desmaiou! Seus parceiros seguem na missão.',3200);
  send({t:'faint',on:1,x:+player.position.x.toFixed(1),z:+player.position.z.toFixed(1)})}
-function buildAmb(){const c=buildCar(0xf4f4f4,true),rm=new THREE.MeshBasicMaterial({color:0xd22222});
- [1.02,-1.02].forEach(x=>{const a=new THREE.Mesh(new THREE.BoxGeometry(.04,.55,.16),rm),b=new THREE.Mesh(new THREE.BoxGeometry(.04,.16,.55),rm);a.position.set(x,.8,-.2);b.position.set(x,.8,-.2);c.g.add(a,b)});return c}
+function buildAmb(){const g=new THREE.Group(),paint=pmat(0xf6f6f6,0x888888,80),dk=0x1b1c20,red=0xd22222,gl=0x101a26;
+ const add=(geo,m,sh)=>{const me=new THREE.Mesh(geo,m);me.castShadow=!!sh;g.add(me);return me};
+ add(VG('ambBody',()=>sideGeo([[-2.4,.4],[2.4,.4],[2.4,.98],[2.15,1.1],[1.55,1.18],[1.0,1.95],[.2,2.0],[.2,2.6],[-2.35,2.6],[-2.4,2.5]],2.1,.05)),paint,1);
+ add(VG('ambDet',()=>mergeG([
+  vbx(2.2,.18,.2,0,.46,2.42,dk),vbx(2.2,.18,.2,0,.46,-2.44,dk),vbx(1.4,.22,.05,0,.7,2.44,0x0b0b0d),vbx(1.9,.2,4.4,0,.32,0,0x0b0b0d),
+  vbx(.04,.3,3.0,1.085,1.3,-1.15,red),vbx(.04,.3,3.0,-1.085,1.3,-1.15,red),
+  vbx(.04,.7,.22,1.085,2.05,-1.15,red),vbx(.04,.22,.7,1.085,2.05,-1.15,red),vbx(.04,.7,.22,-1.085,2.05,-1.15,red),vbx(.04,.22,.7,-1.085,2.05,-1.15,red),
+  vbx(.7,.22,.04,0,1.9,-2.45,red),vbx(.22,.7,.04,0,1.9,-2.45,red),vbx(.03,2.0,.03,0,1.5,-2.46,0x999999),vbx(1.15,.5,.04,0,1.0,-2.45,0xd22222),
+  vbx(.04,.62,.95,1.085,1.65,.6,gl),vbx(.04,.62,.95,-1.085,1.65,.6,gl),vbx(1.8,1.0,.04,0,1.6,1.28,gl,-.62),
+  vbx(.14,.1,.22,1.18,1.55,1.3,dk),vbx(.14,.1,.22,-1.18,1.55,1.3,dk),
+  arch(1.065,1.6,.48),arch(-1.065,1.6,.48),arch(1.065,-1.45,.48),arch(-1.065,-1.45,.48),vbx(1.1,.1,.4,0,2.04,.6,0x111216)])),DETM);
+ add(VG('ambGlow',()=>mergeG([vbx(.46,.18,.06,.75,.7,2.44,0xfff2b8),vbx(.46,.18,.06,-.75,.7,2.44,0xfff2b8),vbx(.2,.5,.06,1.0,.95,-2.46,0xc01818),vbx(.2,.5,.06,-1.0,.95,-2.46,0xc01818)])),GLOWM);
+ addWheels(g,[[-1.05,1.6,1],[1.05,1.6,1],[-1.05,-1.45],[1.05,-1.45]],.42,.32);
+ const lg=VG('ambLb',()=>new THREE.BoxGeometry(.5,.18,.36)),lights=[-.32,.32].map((x,i)=>{const m=new THREE.Mesh(lg,new THREE.MeshBasicMaterial({color:i?0x2266ff:0xff2222}));m.position.set(x,2.17,.6);g.add(m);return m});
+ return{g,lights}}
 function ambCall(key,bc){if(ambs[key])return;let vx,vz;
  if(key===myKey){if(!faint)return;vx=player.position.x;vz=player.position.z;faint.called=true}
  else{const r=remotes[key];if(!r||!r.fnt)return;vx=r.g.position.x;vz=r.g.position.z}
@@ -1695,7 +1987,7 @@ function updAmbs(dt){for(const k in ambs){const a=ambs[k],mine=k===myKey,r=mine?
    if(done){a.ph='gone';a.t=0;if(mine)ambFinish();else setTimeout(()=>{const q=remotes[k];if(q){q.fnt=false;q.boarded=false}},4000)}}}}
 {const d=document.createElement('div');d.id='fnt';d.className='p';d.style.cssText='position:fixed;top:24%;left:50%;transform:translateX(-50%);z-index:7;display:none;pointer-events:none;font-weight:700;color:#ff9a9a;text-align:center;max-width:70%';document.body.appendChild(d)}
 function fntUI(){const d=$('fnt');if(!faint){d.style.display='none';return}const a=ambs[myKey];let t;
- if(!a)t=`💤 Desmaiado • ambulância em ${Math.max(0,Math.ceil(AMB_AUTO-(time-faint.t0)))}s (ou chame pelo 📱)`;
+ if(!a)t=roomCode?'💤 Desmaiado • chame a ambulância pelo 📱 (ou um parceiro chama por você)':`💤 Desmaiado • ambulância em ${Math.max(0,Math.ceil(AMB_AUTO-(time-faint.t0)))}s (ou chame pelo 📱)`;
  else if(a.ph==='go')t=`🚑 Ambulância a caminho • ${Math.round(pathLeft(a))} m`;else if(a.ph==='load')t='🚑 Socorrendo…';else t='🚑 Indo para o hospital…';
  d.textContent=t;d.style.display='block'}
 
@@ -1746,7 +2038,7 @@ function phAct(a,n){
   ambCall(k,true);openPhone()}}
 function updSvc(dt){updAmbs(dt);updRefs(dt);fntUI();if(bigMap.on)bigMapDraw();
  if(curMenu==='phone'&&$('menu').style.display==='flex'&&(fc&15)===0){const sig=[Math.ceil((refCdEnd-performance.now())/1000),!!tow,carHp<=0,money,!!faint,!!ambs[myKey],Object.keys(remotes).filter(k=>remotes[k].fnt&&!ambs[k]).join()].join('|');if(sig!==phSig){phSig=sig;openPhone()}}
- if(faint&&!faint.called&&time-faint.t0>AMB_AUTO)ambCall(myKey,true)}
+ if(faint&&!faint.called&&!roomCode&&time-faint.t0>AMB_AUTO)ambCall(myKey,true)}
 
 // --- Botões: celular e zoom; painel minimizável ---
 {const mk=(id,t,r,f)=>{const b=document.createElement('button');b.id=id;b.className='hb';b.textContent=t;b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();f()});($('tools')||document.body).appendChild(b)};
@@ -1837,7 +2129,7 @@ function startBank(s){
  bankBeam=new THREE.Mesh(new THREE.CylinderGeometry(.6,.6,60,10),new THREE.MeshBasicMaterial({color:0xff3333,transparent:true,opacity:.3}));bankBeam.position.set(BK.x,30,BK.z);scene.add(bankBeam);
  msg('Assalto ao banco com reféns! Entre pela porta e salve todos!',3500)}
 function startEscape(){phase='escape';escT=0;msg('Os criminosos decidiram fugir! Não deixe o carro escapar!',3000);
- robbers.forEach(r=>{if(r.dead||r.arrested)return;r.wasArmed=r.armed;r.hold=false;r.armed=false;if(r.inBank){r.boarded=true;r.mesh.visible=false}})}
+ robbers.forEach(r=>{if(r.dead||r.arrested||r.surr)return;r.wasArmed=r.armed;r.hold=false;r.armed=false;if(r.inBank){r.boarded=true;r.mesh.visible=false}})}
 function freeHost(n){untie(n);n.saved=true;n.hostage=false;n.hold=false;n.fleeing=true;n.fleeEnd=time+7;const I=INT[inside];n.exit=I?{x:I.c.x,z:I.c.z+I.e}:{x:n.mesh.position.x,z:n.mesh.position.z};addPts(10);msg('Refém solto! +10',1500);hud()}
 // Refém: mãos amarradas nas costas, agachado e amordaçado
 function tieUp(n){if(n.tied)return;n.tied=true;n.home=n.mesh.position.clone();const P=n.parts;
