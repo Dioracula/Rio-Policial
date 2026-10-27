@@ -90,6 +90,7 @@ body.edit #jz,body.edit #joy,body.edit #acts,body.edit #gps,body.edit #hud,body.
 #acts #arrest{right:6px;bottom:88px}
 #acts #car{right:82px;bottom:82px}
 #acts #ab{right:150px;bottom:6px}
+#acts #pick{right:150px;bottom:70px;background:#d29922;display:none}
 #acts #wpn{right:6px;bottom:154px;font-size:9px}
 #acts #rollb{right:70px;bottom:154px}
 #acts #covb{right:134px;bottom:154px}
@@ -98,13 +99,81 @@ body.edit #jz,body.edit #joy,body.edit #acts,body.edit #gps,body.edit #hud,body.
 #mbox{border:1px solid #ffffff1f;border-radius:16px;box-shadow:0 12px 40px #000a}
 #mbox button{font-weight:600;box-shadow:inset 0 1px 0 #ffffff30}
 #mbox button:active{filter:brightness(.85)}
+
+/* ===== UI v2: loja, missões e celular ===== */
+#menu.shop #mbox,#menu.mis #mbox{width:min(94vw,470px);padding:0;background:linear-gradient(180deg,#121823,#0b0f16);overflow:auto}
+#mbox .hd{display:flex;align-items:center;gap:10px;padding:14px 14px 10px;position:sticky;top:0;z-index:2;background:linear-gradient(180deg,#121823 70%,#121823e0);backdrop-filter:blur(6px)}
+#mbox .hd .lg{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(135deg,#1f6feb,#8957e5);box-shadow:0 4px 14px #1f6feb55}
+#mbox .hd .tt{flex:1;line-height:1.2}#mbox .hd .tt b{font-size:16px;letter-spacing:.3px}#mbox .hd .tt small{display:block;color:#8b98a9;font-size:11px}
+#mbox .hd .mn{background:#0d2a17;border:1px solid #2ea04366;color:#7ee787;border-radius:20px;padding:6px 11px;font-weight:700;font-size:13px;white-space:nowrap}
+#mbox .tabs{display:flex;gap:6px;padding:0 14px 8px}
+#mbox .tabs button{flex:1;margin:0!important;padding:9px 4px!important;text-align:center!important;font-size:12.5px!important;background:#1b2330!important;color:#9fb0c3;border-radius:10px!important;box-shadow:none!important}
+#mbox .tabs button.on{background:linear-gradient(135deg,#1f6feb,#3b82f6)!important;color:#fff}
+#mbox .bd{padding:2px 14px 14px}
+#mbox .wc{background:linear-gradient(160deg,#182131,#10151e);border:1px solid #ffffff14;border-radius:16px;margin-top:10px;overflow:hidden;box-shadow:0 6px 18px #0006}
+#mbox .wc.cur{border-color:#2ea04388}
+#mbox .wi{height:104px;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 60%,#2a3647 0,#151b26 70%);position:relative;border-bottom:1px solid #ffffff10}
+#mbox .wi svg{width:88%;max-width:300px;height:92px;filter:drop-shadow(0 6px 8px #000a)}
+#mbox .wi .bg{position:absolute;top:8px;left:10px;font-size:10px;font-weight:700;letter-spacing:.8px;padding:3px 8px;border-radius:20px;background:#ffffff14;color:#cfd8e3}
+#mbox .wi .bg.ok{background:#2ea04333;color:#7ee787}
+#mbox .wt{padding:10px 12px 0;display:flex;justify-content:space-between;align-items:baseline}#mbox .wt b{font-size:15px}#mbox .wt span{font-size:11px;color:#8b98a9}
+#mbox .wd{padding:2px 12px 0;font-size:12px;color:#9fb0c3}
+#mbox .bars{padding:8px 12px 0;display:grid;gap:5px}
+#mbox .bar{display:grid;grid-template-columns:64px 1fr 34px;gap:8px;align-items:center;font-size:11px;color:#9fb0c3}
+#mbox .bar i{display:block;height:6px;border-radius:4px;background:#222c3a;overflow:hidden}#mbox .bar i u{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#1f6feb,#58a6ff)}
+#mbox .bar i u.g{background:linear-gradient(90deg,#238636,#56d364)}#mbox .bar i u.o{background:linear-gradient(90deg,#d29922,#f0b72f)}#mbox .bar i u.r{background:linear-gradient(90deg,#da3633,#ff7b72)}
+#mbox .bar em{font-style:normal;text-align:right;color:#cfd8e3}
+#mbox .wf{padding:10px 12px 12px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+#mbox .wf .pr{font-weight:800;font-size:16px;color:#7ee787}
+#mbox .wf button{width:auto!important;margin:0!important;padding:10px 18px!important;text-align:center!important;font-size:13.5px!important;border-radius:12px!important;color:#fff}
+#mbox .wf button.ok{background:linear-gradient(135deg,#238636,#2ea043)}#mbox .wf button.off{background:#2a3340;color:#7d8a9b}
+#mbox .wf .col{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+#mbox .ftr{padding:0 14px 14px}#mbox .ftr button{background:#222c3a;text-align:center;margin-top:12px}
+#mbox .vi{height:96px;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 60%,#2a3647 0,#151b26 70%)}
+/* missões */
+#mbox .mwarn{margin:0 14px 4px;padding:8px 10px;border-radius:10px;background:#3a2c0e;border:1px solid #d2992266;color:#ffe9a8;font-size:12px}
+#mbox button.mc{display:flex;gap:12px;align-items:center;width:100%;margin:10px 0 0;padding:0;overflow:hidden;border-radius:16px;background:linear-gradient(160deg,#182131,#10151e);border:1px solid #ffffff14;box-shadow:0 6px 18px #0006;text-align:left;position:relative}
+#mbox button.mc .ic{width:76px;align-self:stretch;min-height:92px;display:flex;align-items:center;justify-content:center;font-size:34px;flex:none}
+#mbox button.mc .tx{flex:1;padding:10px 0;line-height:1.3;min-width:0}#mbox button.mc .tx b{font-size:15px;display:block}#mbox button.mc .tx small{display:block;color:#9fb0c3;font-size:11.5px;font-weight:400;margin-top:2px}
+#mbox button.mc .tg{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+#mbox button.mc .tg span{font-size:10.5px;padding:3px 8px;border-radius:20px;font-weight:700}
+#mbox button.mc .go{flex:none;padding-right:14px;font-size:22px;color:#58a6ff}
+#mbox button.mc:active{transform:scale(.985)}
+.d1{background:#12301c;color:#7ee787}.d2{background:#3a2c0e;color:#f0b72f}.d3{background:#3d1517;color:#ff7b72}.st{background:#1b2330;color:#ffd24a}.rw{background:#10263d;color:#79c0ff}
+/* celular */
+#menu.phn{background:#000c}
+#menu.phn #mbox{background:none;border:none;box-shadow:none;padding:0;overflow:visible;width:auto;max-height:none}
+.ph{--h:min(92vh,620px);height:var(--h);width:min(88vw,calc(var(--h)*.5));border-radius:34px;background:#05070a;padding:9px;box-shadow:0 0 0 2px #2a2f38,0 0 0 5px #0b0d11,0 24px 60px #000;position:relative;margin:auto}
+.ph .scr{height:100%;border-radius:26px;overflow:hidden;display:flex;flex-direction:column;position:relative;color:#fff;background:linear-gradient(165deg,#1b3a6b 0%,#3a2a6b 45%,#6b2a4a 100%)}
+.ph .cam{position:absolute;top:8px;left:50%;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#000;z-index:5;box-shadow:inset 0 0 0 2px #1c2330}
+.ph .sb{display:flex;justify-content:space-between;align-items:center;padding:7px 16px 3px;font-size:11px;font-weight:600;z-index:3}
+.ph .sb .ri{display:flex;gap:6px;align-items:center}
+.ph .bt{display:inline-block;width:18px;height:9px;border:1.5px solid #fff;border-radius:3px;position:relative}.ph .bt:after{content:"";position:absolute;inset:1px;width:72%;background:#fff;border-radius:1px}
+.ph .body{flex:1;overflow:auto;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch}
+.ph .clk{text-align:center;padding:14px 0 6px}.ph .clk b{font-size:44px;font-weight:300;letter-spacing:1px;display:block;line-height:1}.ph .clk small{font-size:12px;opacity:.85}
+.ph .srch{margin:8px 14px 10px;padding:9px 14px;border-radius:22px;background:#ffffff26;font-size:12px;color:#ffffffcc;display:flex;gap:8px;align-items:center}
+.ph .ntf{margin:0 12px 8px;padding:9px 11px;border-radius:16px;background:#ffffff2e;backdrop-filter:blur(8px);font-size:11.5px;line-height:1.3}.ph .ntf b{display:block;font-size:11px;opacity:.8}
+.ph .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 4px;padding:8px 8px 0}
+#mbox .ph button.app{background:none!important;box-shadow:none!important;border:none;padding:0!important;margin:0!important;width:100%!important;display:flex!important;flex-direction:column;align-items:center;gap:4px;text-align:center!important;color:#fff;font-size:10px!important;font-weight:500!important;position:relative}
+.ph .app i{font-style:normal;width:46px;height:46px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:23px;box-shadow:0 4px 10px #0007;position:relative}
+.ph .app i s{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;border-radius:8px;background:#ea4335;font-size:9px;line-height:15px;text-decoration:none;font-weight:700;padding:0 3px;box-sizing:border-box;border:1.5px solid #1b2330}
+.ph .dock{margin:auto 10px 8px;padding:8px;border-radius:24px;background:#ffffff26;backdrop-filter:blur(8px);display:grid;grid-template-columns:repeat(4,1fr)}
+.ph .ah{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0f1520;font-weight:600;font-size:15px}
+.ph .appb{flex:1;background:#0f1520;padding:4px 14px 14px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.ph .card{background:#1a2230;border-radius:18px;padding:14px;font-size:12.5px;line-height:1.4;color:#c9d4e2}.ph .card h3{margin:0 0 4px;font-size:15px;color:#fff;font-weight:600}
+.ph .big{font-size:30px;font-weight:300;color:#fff;margin:4px 0}
+#mbox .ph button.pill{width:100%;margin:2px 0 0;padding:13px;border-radius:26px;text-align:center;font-size:14px;background:#8ab4f8;color:#06214a;box-shadow:none}
+#mbox .ph button.pill.off{background:#2a3340;color:#7d8a9b}
+.ph .nav{display:flex;justify-content:space-around;align-items:center;padding:6px 0 8px;background:#000}
+#mbox .ph .nav button{width:auto;margin:0;padding:4px 22px;background:none;box-shadow:none;color:#fff;font-size:16px;border-radius:14px;text-align:center}
+#mbox .ph .nav button:active{background:#ffffff26}
 #stl{margin-top:6px;font-size:11px;display:none}
 </style></head><body>
 <canvas id="c"></canvas><div id="vig"></div>
 <div id="hud"><div id="left"><button id="minb">▾ Minimizar</button><div class="p" id="mission"></div><div class="p" id="notes"></div><div class="p" id="stl"></div></div><div id="hr"><div class="p" id="score">Pontos: 0</div><div id="tools"><button class="btn" id="soc">☰</button></div></div></div>
 <div class="p" id="prompt"></div><div class="p" id="msg"></div><canvas id="gps" width="300" height="300"></canvas><div id="menu"><div id="mbox"></div></div><div id="xh"></div><div id="rot">📱 Gire o celular para a horizontal para jogar</div><div id="login"><div class="lb"><h2>🚓 Policial da Cidade</h2><input id="nk" placeholder="Seu Nick (3–12 letras/números)" maxlength="12" autocomplete="username" autocapitalize="off" spellcheck="false"><input id="pw" type="password" placeholder="Senha (4–40 caracteres)" maxlength="40" autocomplete="current-password"><button id="lgo">ENTRAR</button><button id="lreg" style="background:#2ea043">CRIAR CONTA</button><button id="loff" style="background:#444">Jogar offline</button><button id="lsw" style="background:#555;display:none">Trocar de conta</button><div id="lst"></div></div></div>
 <div id="jz"></div><div id="joy"><div id="stick"></div></div>
-<div id="acts"><button class="btn" id="ab" style="background:#8957e5;display:none"></button><button class="btn" id="car" style="background:#1f6feb;display:none">ENTRAR</button><button class="btn" id="arrest" style="background:#2ea043">PRENDER</button><button class="btn" id="shoot" style="background:#da3633">ATIRAR</button><button class="btn" id="aimb" style="background:#6e7681">MIRA</button><button class="btn" id="wpn"></button></div>
+<div id="acts"><button class="btn" id="ab" style="background:#8957e5;display:none"></button><button class="btn" id="car" style="background:#1f6feb;display:none">ENTRAR</button><button class="btn" id="pick">PEGAR<br>ARMA</button><button class="btn" id="arrest" style="background:#2ea043">PRENDER</button><button class="btn" id="shoot" style="background:#da3633">ATIRAR</button><button class="btn" id="aimb" style="background:#6e7681">MIRA</button><button class="btn" id="wpn"></button></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
@@ -395,7 +464,7 @@ function walk(p,ph,on,dt,v){ // v = velocidade real (m/s): amplitude do passo, j
  p.legL.rotation.x=a;p.legR.rotation.x=-a;if(p.legL.knee)p.legL.knee.rotation.x=kL;if(p.legR.knee)p.legR.knee.rotation.x=kR;
  const rc=(an,k)=>.52*Math.cos(an)+.52*Math.cos(an+k);
  p.drop=Math.max(-.45,Math.min(0,Math.max(rc(a,kL),rc(-a,kR))-1.04))*(1-.45*run); // quadril desce até o pé de apoio tocar o chão: peso e quique naturais
- const q=Math.sin(ph),cl=armCyc(q,amp,run),cr=armCyc(-q,amp,run);p.armL.rotation.x=cl[0];p.armR.rotation.x=cr[0];if(p.armL.elbow){p.armL.elbow.rotation.x=cl[1];p.armR.elbow.rotation.x=cr[1]}p.run=run;p.lean=.15*run;p.ph0=ph}
+ const q=Math.sin(ph),cl=armCyc(q,amp,run),cr=armCyc(-q,amp,run);p.armL.rotation.x=cl[0];p.armR.rotation.x=cr[0];if(p.armL.elbow){p.armL.elbow.rotation.x=cl[1];p.armR.elbow.rotation.x=cr[1]}p.run=run;p.lean=.15*run;p.ph0=ph;p.rollZ=.04*run*Math.sin(ph)*amp;p.bobX=.03*run*Math.cos(2*ph)*amp}
 const POLICE_SHIRT=0x1f4aa8,POLICE_PANTS=0x15233f; // farda azul da polícia: fixa para o jogador local e para todos os remotos, nunca muda (ex.: ao jogar online)
 const pl=buildPerson({shirt:POLICE_SHIRT,pants:POLICE_PANTS,skin:0xe0b090,hat:true,hatColor:0x10224a,pack:false,scale:1});
 const player=pl.g;player.position.set(0,0,-8);scene.add(player);
@@ -493,15 +562,19 @@ function armIK(A,T,pole,L1,L2){ // braço de 2 segmentos: ombro (A.position) at�
  _W.copy(_Y).negate();_X.crossVectors(_W,_Z).normalize();              // base do braço: x = y × z, y = -braço
  _Mq.makeBasis(_X,_W,_Z);A.quaternion.setFromRotationMatrix(_Mq);
  if(A.elbow)A.elbow.rotation.x=-Math.acos(c)}                           // cotovelo só dobra para o lado natural
-function resetGrip(av){const P=av.parts;av._gp=false;for(const A of[P.armL,P.armR]){A.rotation.y=0;A.rotation.z=0}
+function resetGrip(av){const P=av.parts;av._gp=false;av._sG=null;av._sF=null;for(const A of[P.armL,P.armR]){A.rotation.y=0;A.rotation.z=0}
  if(av.wm){av.wm.position.set(0,-.82+(P.armR.elbow?.4:0),0);av.wm.quaternion.identity()}}
 function gripTwo(av,aiming,rk){const P=av.parts,id=av.wid|0,K=id<=2?GRIP.short:GRIP.long,R=P.armR,L=P.armL;
  const t=performance.now(),dt=Math.min(.1,(t-(av._gt||t))/1000);av._gt=t;
  const ga=av._ga=(av._ga||0)+((aiming?1:0)-(av._ga||0))*Math.min(1,dt*14); // transição suave entre andar/correr e mirar
  const m=(a,b,k)=>a+(b-a)*k;
  const g0=K.rdy[0],g1=K.run[0],g2=K.aim[0],f0=K.rdy[1],f1=K.run[1],f2=K.aim[1],ph=P.ph0||0;
- _G.set(m(m(g0[0],g1[0],rk),g2[0],ga)+.01*Math.sin(ph)*rk,m(m(g0[1],g1[1],rk),g2[1],ga)+.018*Math.sin(2*ph)*rk,m(m(g0[2],g1[2],rk),g2[2],ga));
- _F.set(m(m(f0[0],f1[0],rk),f2[0],ga),m(m(f0[1],f1[1],rk),f2[1],ga),m(m(f0[2],f1[2],rk),f2[2],ga)).normalize();
+ const fr=rk*(1-ga); // balanço orgânico só ao correr sem mirar
+ _G.set(m(m(g0[0],g1[0],rk),g2[0],ga)+.028*Math.sin(ph)*fr,m(m(g0[1],g1[1],rk),g2[1],ga)+.03*Math.sin(2*ph+.7)*fr,m(m(g0[2],g1[2],rk),g2[2],ga)+.022*Math.cos(2*ph+.4)*fr);
+ _F.set(m(m(f0[0],f1[0],rk),f2[0],ga)+.05*Math.cos(ph)*fr,m(m(f0[1],f1[1],rk),f2[1],ga)+.06*Math.sin(2*ph+1.1)*fr,m(m(f0[2],f1[2],rk),f2[2],ga)).normalize();
+ {const kf=1-Math.exp(-dt*(22-10*fr)); // inércia: a arma "pesa" e acompanha o corpo com leve atraso (some ao mirar)
+  if(!av._sG){av._sG=_G.clone();av._sF=_F.clone()}else{av._sG.lerp(_G,kf);av._sF.lerp(_F,kf)}
+  _G.copy(av._sG);_F.copy(av._sF).normalize()}
  {const th=-.9*(av._rx||0),c=Math.cos(th),s=Math.sin(th),y=_F.y*c-_F.z*s,z=_F.y*s+_F.z*c;_F.y=y;_F.z=z;_F.normalize()} // tronco inclinado (agachado/correndo): o cano mantém a direção
  _U.set(0,1,0).addScaledVector(_F,-_F.y).normalize();                    // "para cima" da arma
  _NF.copy(_F).negate();_X.crossVectors(_NF,_U).normalize();_Mw.makeBasis(_X,_NF,_U);_Mw.setPosition(_G);
@@ -527,7 +600,7 @@ function resetSwingZ(av){av.parts.armR.rotation.z=0;av.parts.armL.rotation.z=0}
 function poseArm(av,aiming,sw){const P=av.parts,a=P.armR,E=a.elbow,id=av.wid|0,rk=aiming?0:(P.run||0),sS=a.rotation.x,sE=E?E.rotation.x:0; // sS/sE = ciclo de passada calculado por walk()
  if(id>0&&E&&P.armL.elbow&&av.wm&&!av.rag&&!(av===pl&&rollEnd>time)){gripTwo(av,aiming,rk);return} // armas de fogo: duas mãos (correndo e mirando)
  if(av._gp)resetGrip(av);
- if(id===0){if(sw>0){swingArm(av,sw)}else if(aiming){a.rotation.x=-.9;if(E)E.rotation.x=0}return} // cassetete: braço livre acompanha a passada
+ if(id===0){if(sw>0){swingArm(av,sw)}else if(aiming){a.rotation.x=-.9;if(E)E.rotation.x=0}else if(rk>0){const ph=P.ph0||0;a.rotation.x=sS*.85;a.rotation.z=-.07*rk-.05*rk*Math.sin(ph);if(E)E.rotation.x=sE*.9-.35*rk;P.armL.rotation.z=.07*rk+.04*rk*Math.sin(ph)}else{a.rotation.z=0}return} // cassetete: braço livre acompanha a passada
  if(aiming){a.rotation.x=-1.5;if(E)E.rotation.x=0;return}
  if(id>=3){ // duas mãos: ao correr, braço direito segura a arma em pé junto ao ombro (sprint da Division); o esquerdo balança livre
   a.rotation.x=-1.0*(1-rk)-.3*rk+.05*rk*Math.sin(2*(P.ph0||0));if(E)E.rotation.x=-2.6*rk}
@@ -544,7 +617,7 @@ function loadState(s){s=s||{};
  score=Math.floor(+s.score)||0;missionN=Math.max(0,Math.floor(+s.missionN)||0);xp=Math.max(0,Math.floor(+s.xp)||0);
  money=(s.money===undefined||!Number.isFinite(+s.money))?500:Math.max(0,Math.floor(+s.money));
  own=Array.isArray(s.own)?[...new Set(s.own.map(x=>Math.floor(+x)).filter(x=>x>=0&&x<WEAPONS.length))]:[0];if(!own.includes(0))own.unshift(0);
- ammo={};if(s.ammo&&typeof s.ammo==='object')for(const k in s.ammo){const id=+k;if(own.includes(id)&&id>0)ammo[id]=Math.max(0,Math.min(WEAPONS[id].max,Math.floor(+s.ammo[k])||0))}
+ ammo={};if(s.ammo&&typeof s.ammo==='object')for(const k in s.ammo){const id=+k;if(id>0&&id<WEAPONS.length)ammo[id]=Math.max(0,Math.min(WEAPONS[id].max,Math.floor(+s.ammo[k])||0))}
  eq=own.includes(+s.eq)?+s.eq:0;
  vests={};if(s.vests&&typeof s.vests==='object')for(const k in s.vests){const id=+k;if(VESTS[id]){const d=Math.max(0,Math.min(VESTS[id].dur,+s.vests[k]||0));if(d>0)vests[id]=d}}
  vestOn=vests[+s.vestOn]!=null?+s.vestOn:-1;
@@ -561,7 +634,7 @@ let lastFireT=0,shot=null;
 const bankPause=()=>inside==='bank'||Object.values(remotes).some(r=>r.g.position.x>850&&r.g.position.x<950);
 const kidPause=()=>inside==='kid'||Object.values(remotes).some(r=>r.g.position.x>550&&r.g.position.x<650);
 function setReact(n,f){if(n.react||n.hostage)return;n.react=f||(n.lair?'fight':(n.robber||n.kid)?'fight':(Math.random()<.35?'flee':'fight'));n.revealed=true;n.hold=false;
- if(n.react==='fight'){n.armed=true;n.fireT=Math.min(n.fireT||1,.7);if(time-(setReact.t||-9)>2){setReact.t=time;msg('O suspeito sacou uma arma!',1500)}}else{if(n.armed){n.armed=false;dropGun(n)}msg('O suspeito está fugindo!',1500)}}
+ if(n.react==='fight'){n.armed=true;n.fireT=Math.min(n.fireT||1,.7);if(time-(setReact.t||-9)>2){setReact.t=time;msg('O suspeito sacou uma arma!',1500)}}else{if(n.armed){n.armed=false;dropGun(n,true)}msg('O suspeito está fugindo!',1500)}}
 const resisting=n=>!!(n.armed&&(n.react==='fight'||n.underFire)&&!(n.down>0));
 function drawCompass(){const c=$('comp');if(!c)return;const on=!mDone&&mtype==='invest'&&crime==='roubo'&&roubZ;c.style.display=on?'block':'none';if(!on)return;
  const g=c.getContext('2d'),R=64;g.clearRect(0,0,128,128);g.fillStyle='#0d1117dd';g.beginPath();g.arc(R,R,62,0,7);g.fill();g.strokeStyle='#ffffff66';g.lineWidth=3;g.stroke();
@@ -1062,6 +1135,7 @@ function clearClues(){clues.forEach(c=>{scene.remove(c.m);if(c.ex)scene.remove(c
  if(pzRun){pzRun.over=true;if(pzRun.cleanup)pzRun.cleanup();pzRun=null;const o=$('puz');if(o)o.style.display='none'}}
 function endMission(win,text,pts=0){if(mDone)return;mDone=true;if(!win)wipeCriminals();else{crm++;if(mtype==='invest'&&crime==='homicídio')per++}pts*=mStars;addPts(pts);if(pts)text+=` ×${mStars}★ = +${pts}`;if(suspect){suspect.isSuspect=false;suspect.armed=false;suspect=null}if(roomCode)send({t:'end',text,pts,w:win?1:0});msg(text,3000);endKid();clearClues();notes=[];if(bankBeam){scene.remove(bankBeam);bankBeam=null}genOffers();hud();saveGame()}
 function neutralize(n,kind,dl){
+ n.dis=null;
  n.t0=performance.now();if(n.tied)untie(n);if(n.grab)release(n,true);
  if(kind==='arrest'){surrStand(n);if(n.hr)hrEnd(n);n.arrested=true;n.parts.sm.color.set(0x777777);cuffUp(n);cuffPose(n)}else{n.dead=true;ragKillNPC(n)}
  if(kind==='arrest'&&!dl&&!n.lock&&(n.isSuspect||n.robber||n.kid)){n.custody=true;n.remoteBy=null;send({t:'arr',o:n.robber?'r':n.kid?'k':'s',tr:n.traits,pa:n.pants,sk:n.skin,hc:n.hatC,lk:n.look?[n.look.sex,n.look.skin,n.look.hair,n.look.hc,n.look.glasses,n.look.must,n.look.beard,n.look.fc]:null,x:+n.mesh.position.x.toFixed(1),z:+n.mesh.position.z.toFixed(1)});msg('Preso! Leve-o até a delegacia (siga o GPS)',3000);hud();return}
@@ -1133,7 +1207,7 @@ function hitNPC(n,part,dm,E){dm=dm||1;hitOut=null;
  if(!n.react)setReact(n);n.revealed=true;if(n.dodge>time&&Math.random()<.4){msg('Ele desviou do tiro!',900);return 'miss'}if(shotCovered(n,E)){msg('Ele está protegido pela cobertura!',700);return 'cover'}
  if(n.hp==null)n.hp=100;
  if(part==='h'){n.hp=0;addPts(3);msg('HEADSHOT! +3',1200)}
- else if(part==='a'){n.hp-=15*dm;if(n.grab)release(n,true);if(n.armed){if(n.hp>0)surrender(n,'arm');else{n.armed=false;dropGun(n)}}}
+ else if(part==='a'){n.hp-=15*dm;if(n.grab)release(n,true);if(n.armed){if(n.hp>0)disarmNPC(n);else{n.armed=false;dropGun(n,true)}}}
  else if(part==='l'){n.hp-=20*dm;if(n.hp>0)surrender(n,'leg')}
  else n.hp-=34*dm;
  hitOut={o:n.hp<=0?3:(n.surr==='arm'?1:n.surr==='leg'?2:0),hp:Math.max(0,Math.round(n.hp))};
@@ -1224,7 +1298,7 @@ function surrender(n,how,remote){
  if(n.surr)return;
  n.surr=how;n.react='surr';n.revealed=true;n.hold=false;n.underFire=false;n.det=0;n.down=0;n.fireT=99;
  if(n.grab)release(n,!remote);
- if(n.armed){n.armed=false;dropGun(n)}
+ if(n.armed){n.armed=false;dropGun(n,true)}
  holster(n);n.v=0;n.cs=null;n.cv=null;
  if(how==='leg')ragLive(n);
  else{if(n.sy0!=null)n.mesh.scale.y=n.sy0;n.mesh.position.y=0}
@@ -1322,7 +1396,7 @@ function hitRemote(m){
  stainNPC(n,E,null,dx,dz);n.hp=+m.hp;n.revealed=true;
  const o=m.o|0;
  if(o===3){remoteKill(n,{x:x-dx*3,z:z-dz*3});return}
- if(k==='b'){if(o===1||o===2)surrender(n,o===1?'arm':'leg',true);else{if(!n.react)setReact(n);if(m.m){n.down=Math.max(n.down||0,1.1);hitReact(n)}}}
+ if(k==='b'){if(o===1&&n.armed)disarmNPC(n);else if(o===1||o===2)surrender(n,o===1?'arm':'leg',true);else{if(!n.react)setReact(n);if(m.m){n.down=Math.max(n.down||0,1.1);hitReact(n)}}}
  else if(k==='c'){if(o===1||o===2)woundCiv(n,o===1?'arm':'leg');else if(m.m){n.down=Math.max(n.down||0,2.5);hitReact(n)}}}
 function vfxStep(dt){
  for(const f of VFX.fl){if(!f.m.visible)continue;f.t-=dt;if(f.t<=0){f.m.visible=false;continue}const u=1-f.t/f.l;f.m.scale.setScalar(f.s*(.7+.6*u));f.m.material.opacity=1-u*.8}
@@ -1391,7 +1465,7 @@ function meleeHit(n,fin){
  n.revealed=true;if(n.hp==null)n.hp=100;
  n.hp-=34;n.down=Math.max(n.down||0,fin?1.7:1.1);hitReact(n,fin?1.4:1);n.fireT=Math.max(n.fireT||0,1.5);
  if(n.grab)release(n,true);
- if(n.armed&&Math.random()<.35){n.armed=false;dropGun(n);msg('Arma derrubada!',1200)}
+ if(n.armed&&Math.random()<.35)disarmNPC(n);
  hitOut={o:0,hp:Math.max(1,Math.round(n.hp))};netHit(n,E,'b',ux,uz,.6,1);
  if(n.hp<=0)neutralize(n,'arrest');else hud()}
 // Armas dos bandidos (mesmos modelos/empunhadura do jogador): b = tiros por rajada, ci = intervalo na rajada, g = pausa [base, aleatório],
@@ -1494,9 +1568,64 @@ let inside=null,ZB=null,mStars=1,mtotal=4,offers=[],act=null,hostageN=null,extBa
 const wallM=mat(0x8a8f99);
 function wl(L,cx,cz,w,d,k,h=4){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),wallM);m.position.set(cx,h/2,cz);m.castShadow=true;scene.add(m);L.push(m);colliders.push({x:cx,z:cz,w,d,k,h})}
 function room(L,c,W,D,fm,k){const f=new THREE.Mesh(new THREE.BoxGeometry(W,.2,D),fm);f.position.set(c.x,.05,c.z);f.receiveShadow=true;scene.add(f);L.push(f);
+ // vedação total: teto visível só por baixo (visto de cima fica aberto, como casa de boneca), chão escuro ao redor e fundo escuro quando dentro => nada do exterior aparece
+ {const ce=new THREE.Mesh(new THREE.PlaneGeometry(W+1.2,D+1.2),new THREE.MeshBasicMaterial({color:0x34353b}));ce.rotation.x=Math.PI/2;ce.position.set(c.x,3.98,c.z);scene.add(ce);L.push(ce);
+  const sk=new THREE.Mesh(new THREE.PlaneGeometry(W+90,D+90),new THREE.MeshBasicMaterial({color:0x0e0f12}));sk.rotation.x=-Math.PI/2;sk.position.set(c.x,.02,c.z);scene.add(sk);L.push(sk);
+  const lm=new THREE.MeshBasicMaterial({color:0xfff3d0});
+  for(let ix=-1;ix<=1;ix++)for(let iz=-1;iz<=1;iz++){const lp=new THREE.Mesh(new THREE.BoxGeometry(2.4,.06,.9),lm);lp.position.set(c.x+ix*W*.28,3.93,c.z+iz*D*.28);scene.add(lp);L.push(lp)}
+  const bm=mat(0x23252b);for(const[bx,bz,bw,bd]of[[0,-D/2+.34,W-.6,.1],[0,D/2-.34,W-.6,.1],[-W/2+.34,0,.1,D-.6],[W/2-.34,0,.1,D-.6]]){const b=new THREE.Mesh(new THREE.BoxGeometry(bw,.28,bd),bm);b.position.set(c.x+bx,.28,c.z+bz);scene.add(b);L.push(b)}}
  wl(L,c.x,c.z-D/2,W,.6,k);wl(L,c.x,c.z+D/2,W,.6,k);wl(L,c.x-W/2,c.z,.6,D,k);wl(L,c.x+W/2,c.z,.6,D,k)}
+
+// ---------- Decoração dos interiores (visual; encostada nas paredes, sem bloquear passagem) ----------
+const bxm=(L,x,y,z,w,h,d,col,basic)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),basic?new THREE.MeshBasicMaterial({color:col}):mat(col));m.position.set(x,y,z);m.receiveShadow=true;scene.add(m);L.push(m);return m};
+function cvTex(w,h,fn){const c=document.createElement('canvas');c.width=w;c.height=h;fn(c.getContext('2d'),w,h);return new THREE.CanvasTexture(c)}
+function wallArt(L,x,y,z,w,h,ry,col,txt){const t=cvTex(128,Math.round(128*h/w),(g,W,H)=>{g.fillStyle=col;g.fillRect(0,0,W,H);g.strokeStyle='#e8e0c8';g.lineWidth=6;g.strokeRect(3,3,W-6,H-6);if(txt){g.fillStyle='#fff';g.font='bold 20px sans-serif';g.textAlign='center';g.fillText(txt,W/2,H/2+7)}else{g.fillStyle='rgba(255,255,255,.25)';g.beginPath();g.arc(W*.35,H*.55,H*.28,0,6.3);g.fill();g.fillStyle='rgba(0,0,0,.25)';g.fillRect(W*.5,H*.2,W*.35,H*.5)}});
+ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:t}));m.position.set(x,y,z);m.rotation.y=ry;scene.add(m);L.push(m)}
+function plant(L,x,z){bxm(L,x,.3,z,.6,.6,.6,0x6b4a2e);bxm(L,x,.9,z,.8,.7,.8,0x2f6b34);bxm(L,x,1.4,z,.5,.5,.5,0x3d8a42)}
+function shelf(L,x,z,ry,w,cols){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;const add=(px,py,pz,sw,sh,sd,c)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(sw,sh,sd),mat(c));m.position.set(px,py,pz);g.add(m)};
+ add(0,1.1,0,w,2.2,.1,0x4a3a2a);add(-w/2,1.1,.3,.08,2.2,.6,0x4a3a2a);add(w/2,1.1,.3,.08,2.2,.6,0x4a3a2a);
+ for(let i=0;i<4;i++){add(0,.2+i*.6,.3,w,.06,.6,0x5a4630);for(let j=0;j<5;j++){const c=cols[(i*5+j)%cols.length];add(-w/2+.3+j*(w-.5)/5,.2+i*.6+.2,.3,.22,.34,.3,c)}}
+ scene.add(g);L.push(g)}
+function decorInt(L,C,W,D,t){const hx=W/2-.45,hz=D/2-.45;
+ if(t==='kid'){ // casa
+  bxm(L,C.x-hx+.8,.45,C.z-3,1.5,.9,4,0x6b3d3d);bxm(L,C.x-hx+.3,1.0,C.z-3,.5,1.2,4,0x6b3d3d); // sofá
+  bxm(L,C.x-hx+.4,.7,C.z+5,.4,.9,1.8,0x16181c); // TV
+  bxm(L,C.x-hx+.8,.3,C.z+5,.9,.6,2.4,0x5a4630);
+  bxm(L,C.x+hx-1,.35,C.z-17,1.8,.7,2.2,0x8a7aa8);bxm(L,C.x+hx-.5,.9,C.z-17,.3,1.0,2.2,0x5a4630); // cama
+  bxm(L,C.x+hx-.9,.55,C.z+9,1.4,1.1,3,0x6b5a3a); // armário
+  shelf(L,C.x-8,C.z-D/2+.5,0,4,[0x8a3b3b,0x3b5a8a,0x3b8a5a,0xc9a227,0x6e4a8a]);
+  bxm(L,C.x+10,.75,C.z-D/2+1.2,3,1.5,1.2,0x7a6a5a);bxm(L,C.x+10,.3,C.z-D/2+1.2,2.6,.6,1,0x403830); // cozinha
+  bxm(L,C.x+14,.9,C.z-D/2+1.1,1.1,1.8,1.0,0xd8d8dc); // geladeira
+  plant(L,C.x-hx+.5,C.z+hz-.5);plant(L,C.x+hx-.5,C.z+hz-.5);
+  wallArt(L,C.x-W/2+.35,2.3,C.z-9,2,1.4,Math.PI/2,'#3b5a8a');wallArt(L,C.x+W/2-.35,2.3,C.z-6,1.6,1.2,-Math.PI/2,'#8a6a3b');wallArt(L,C.x+4,2.4,C.z-D/2+.35,2.4,1.4,0,'#5a3b3b')}
+ else if(t==='bank'){
+  for(let i=-1;i<=1;i+=2){bxm(L,C.x+i*13,.6,C.z+hz-1,2,1.2,.8,0xc8ccd2);bxm(L,C.x+i*13,1.2,C.z+hz-1,1.8,.7,.1,0x1d2a3a)} // caixas eletrônicos
+  bxm(L,C.x,2.6,C.z-D/2+.38,9,1.4,.1,0x14305c,true);wallArt(L,C.x,2.6,C.z-D/2+.42,8.4,1.1,0,'#14305c','BANCO CENTRAL');
+  for(let i=0;i<4;i++){bxm(L,C.x-hx+.8,.4,C.z+2+i*2.2,1.4,.8,1.6,0x4a2f2a)} // bancos de espera
+  plant(L,C.x-hx+.6,C.z+hz-.6);plant(L,C.x+hx-.6,C.z-D/2+3);
+  for(let i=-2;i<=2;i++)bxm(L,C.x+i*2.4,.45,C.z+7,.1,.9,.1,0xc9a227); // postes de fila
+  bxm(L,C.x,.85,C.z+7,9.7,.05,.05,0xb02a2a);
+  bxm(L,C.x+hx-.9,.5,C.z+4,1.4,1,5,0x6b5f4a);bxm(L,C.x-hx+.7,1.1,C.z-14,1.2,2.2,3,0x8a8f99); // arquivos
+ }
+ else if(t==='drug'){
+  for(let i=0;i<3;i++){bxm(L,C.x-hx+.9,.85,C.z-14+i*4.6,1.6,.1,3.6,0x8a8f99);bxm(L,C.x-hx+.9,.4,C.z-14+i*4.6,1.4,.8,3.4,0x5a5f66);
+   bxm(L,C.x-hx+.9,1.2,C.z-14+i*4.6-.8,.4,.6,.4,0x4fd06a);bxm(L,C.x-hx+.9,1.15,C.z-14+i*4.6+.8,.35,.5,.35,0xd08a2a)} // bancadas com frascos
+  for(let i=0;i<4;i++)bxm(L,C.x+hx-.8,.55,C.z-16+i*1.4,1.0,1.1,1.0,i%2?0x7a5a2a:0x6a4a1a); // caixotes
+  for(let i=0;i<3;i++){const b=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,1.2,10),mat(i%2?0x2a6a8a:0x8a3a2a));b.position.set(C.x+hx-.9,.6,C.z+3+i*1.3);scene.add(b);L.push(b)} // barris
+  shelf(L,C.x+8,C.z-D/2+.5,0,4.4,[0xe8e8d8,0xd8c8a0,0x8ab08a,0xb08a8a]);shelf(L,C.x-8,C.z-D/2+.5,0,4.4,[0xe8e8d8,0xd8c8a0,0x8ab08a]);
+  bxm(L,C.x,3.7,C.z-D/2+.4,12,.1,.1,0x3cd070,true);
+  bxm(L,C.x+hx-.9,.3,C.z+hz-1,1.4,.6,1.4,0xd8d4c4); // sacos
+  bxm(L,C.x-hx+.5,1.2,C.z+hz-1.5,.7,2.4,1.1,0x5a5a60)}
+ else if(t==='hq'){
+  for(let i=0;i<3;i++){bxm(L,C.x+hx-.6,.9,C.z-8+i*1.5,1.0,1.8,1.1,0x8a8f99);bxm(L,C.x+hx-.6,1.82,C.z-8+i*1.5,1.05,.05,1.15,0x6a6f77)} // arquivos
+  for(let i=0;i<2;i++)bxm(L,C.x-hx+.7,.4,C.z+2+i*3.2,.9,.8,2.6,0x5a3b2a); // bancos
+  bxm(L,C.x-hx+.4,2.4,C.z-3,.1,1.6,2.8,0xd8d8d0);wallArt(L,C.x-W/2+.36,2.4,C.z-3,2.8,1.6,Math.PI/2,'#2a5a7a','MAPA DA CIDADE');
+  for(const sx of[-1,1]){bxm(L,C.x+sx*12.4,1.9,C.z-D/2+.5,.06,3.2,.06,0xb8bcc4);bxm(L,C.x+sx*12.4+sx*.0,3.0,C.z-D/2+.62,.05,1.1,1.6,sx<0?0x1b3a8a:0xb02a2a)} // bandeiras
+  plant(L,C.x-hx+.6,C.z+hz-.6);plant(L,C.x+hx-.6,C.z+hz-.6);
+  bxm(L,C.x-5,.45,C.z+hz-.8,3,.9,.8,0x2f3b55);bxm(L,C.x+5,.45,C.z+hz-.8,3,.9,.8,0x2f3b55);
+  wallArt(L,C.x+W/2-.36,2.5,C.z+3,2,1.3,-Math.PI/2,'#14305c','PROCURADOS')}}
 function ring(L,x,z,col){const r=new THREE.Mesh(new THREE.CircleGeometry(1.6,20),new THREE.MeshBasicMaterial({color:col}));r.rotation.x=-Math.PI/2;r.position.set(x,.17,z);scene.add(r);L.push(r)}
-{const L=[];room(L,HQI,30,24,mat(0x3a4a66),false);
+{const L=[];room(L,HQI,30,24,mat(0x3a4a66),false);decorInt(L,HQI,30,24,'hq');
  [[-8,2],[8,2],[-8,-4],[8,-4]].forEach(([x,z])=>wl(L,HQI.x+x,HQI.z+z,6,2.5,false,1.1));
  const bc=document.createElement('canvas');bc.width=256;bc.height=96;const g=bc.getContext('2d');g.fillStyle='#14305c';g.fillRect(0,0,256,96);g.fillStyle='#ffd24a';g.font='bold 36px sans-serif';g.textAlign='center';g.fillText('MISSÕES',128,60);
  const bd=new THREE.Mesh(new THREE.PlaneGeometry(10,3.4),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(bc)}));bd.position.set(HQI.x,2.2,HQI.z-11.6);scene.add(bd);
@@ -1506,8 +1635,10 @@ function ring(L,x,z,col){const r=new THREE.Mesh(new THREE.CircleGeometry(1.6,20)
 [[-10,-7],[10,-7],[-3,-9]].forEach(([x,z])=>spawnNPC([HQI.x+x,HQI.z+z],{cop:true,hold:true,traits:{cor:'azul',bone:true,mochila:false,altura:'médio'},hatC:0x10224a}));
 function toWorld(x,z){inside=null;ZB=null;player.position.set(x,0,z);yawT=camYaw=Math.PI;camPos.set(x,6,z+9)}
 function genOffers(){offers=Object.keys(TN).map(t=>({t,s:1+Math.floor(Math.random()*3)}))}
-function openMenu(){plainMenu();$('mbox').innerHTML='<b style="font-size:16px">📋 Central de Polícia — escolha a missão</b>'+(mDone?'':'<div style="font-size:11px;color:#ffe9a8;margin-top:4px">Pegar outra missão cancela a atual.</div>')+
- offers.map((o,i)=>`<button data-i="${i}"><span style="color:#ffd24a">${'★'.repeat(o.s)}${'☆'.repeat(3-o.s)}</span> ${TN[o.t]}<br><small>${['Fácil','Armados','Muito perigoso'][o.s-1]} • recompensa ×${o.s}</small></button>`).join('')+'<button data-i="x" style="background:#444;text-align:center">Fechar</button>';$('menu').style.display='flex';menuT=performance.now()}
+const MIS={roubo:['👜','#d29922','Investigue o local, siga as pistas e prenda o ladrão.'],'homicídio':['🔎','#8957e5','Examine o corpo, colete evidências e encontre o culpado.'],'tráfico de drogas':['💊','#2ea043','Invada o esconderijo e prenda toda a quadrilha.'],banco:['🏦','#1f6feb','Assalto em andamento! Liberte os reféns e impeça a fuga.'],sequestro:['🧒','#da3633','Encontre o cativeiro e salve o refém antes que o tempo acabe.']};
+function openMenu(){plainMenu();$('menu').classList.add('mis');
+ $('mbox').innerHTML='<div class="hd"><div class="lg">🚓</div><div class="tt"><b>Central de Polícia</b><small>Escolha sua próxima missão</small></div><div class="mn">'+offers.length+' disponíveis</div></div>'+(mDone?'':'<div class="mwarn">⚠️ Há uma missão em andamento. Pegar outra cancela a atual.</div>')+'<div class="bd">'+
+ offers.map((o,i)=>{const m=MIS[o.t]||['📋','#1f6feb',''];return `<button class="mc" data-i="${i}"><span class="ic" style="background:linear-gradient(160deg,${m[1]}55,${m[1]}11)">${m[0]}</span><span class="tx"><b>${TN[o.t]}</b><small>${m[2]}</small><span class="tg"><span class="d${o.s}">${['Fácil','Armados','Muito perigoso'][o.s-1]}</span><span class="st">${'★'.repeat(o.s)}<span style="opacity:.3;padding:0;background:none">${'★'.repeat(3-o.s)}</span></span><span class="rw">Recompensa ×${o.s}</span></span></span><span class="go">›</span></button>`}).join('')+'</div><div class="ftr"><button data-i="x">Fechar</button></div>';$('menu').style.display='flex';menuT=performance.now()}
 function takeMission(i){const o=offers[i];$('menu').style.display='none';toWorld(HQD.x,-22);const sd=Math.floor(Math.random()*1e9);startSeeded(o,sd);if(roomCode)send({t:'mis',o,sd})}
 function startKid(s){
  mtype='kid';crime='sequestro';mtotal=8;timeLeft=360-s*40;phase='search';
@@ -1515,7 +1646,7 @@ function startKid(s){
  for(let k=0;k<150;k++){b=pick(BLD);if(BLD.filter(o=>o.cor===b.cor&&alt(o.h)===alt(b.h)&&sec(o)===sec(b)&&o.toldo===b.toldo&&o.ant===b.ant).length===1)break}
  kb=b;extBack={x:b.x,z:b.z+b.d/2+3};
  spawnClues([`Família da vítima: o carro dos sequestradores foi visto perto de um prédio ${b.cor}.`,`Câmera de rua: o prédio tem altura ${alt(b.h)}.`,`Informante: fica na região ${sec(b)} em relação à praça central.`,`Testemunha: o prédio tem um toldo ${b.toldo} na porta.`,`Vizinho: ${b.ant?'há uma antena no topo':'não há antena no topo'} do prédio.`,`Taxista: ele fica mais perto do ${LMS.reduce((a,l)=>Math.hypot(l.x-b.x,l.z-b.z)<Math.hypot(a.x-b.x,a.z-b.z)?l:a).n}.`,`Rádio da polícia: o prédio fica a cerca de ${Math.round(Math.hypot(b.x,b.z)/20)*20} m da praça central.`,`Morador: o prédio é mais ${b.w>=b.d?'largo do que fundo':'fundo do que largo'}.`],0);
- const L=kidL,C=KI;room(L,C,44,40,mat(0x4a4540),true);ring(L,C.x,C.z+17,0x3cd070);
+ const L=kidL,C=KI;room(L,C,44,40,mat(0x4a4540),true);decorInt(L,C,44,40,'kid');ring(L,C.x,C.z+17,0x3cd070);
  [[-16.5,6,11,.6],[2,6,14,.6],[18.5,6,7,.6],[-18,-8,8,.6],[-2,-8,12,.6],[16,-8,12,.6],[2,-14,.6,12]].forEach(([x,z,w,d])=>wl(L,C.x+x,C.z+z,w,d,true));
  [[-8,12],[8,14],[-14,-1],[12,0]].forEach(([x,z])=>wl(L,C.x+x,C.z+z,2,2,true,1.2));
  const hs=pick([[-12,-16],[14,-16]]);
@@ -1559,7 +1690,7 @@ function ctxUpdate(){const P=player.position;let a=null;
  $('xh').style.display=!aimOn||$('menu').style.display==='flex'?'none':'block';if(faint)a=null;act=a;const b=$('ab');b.style.display=a?'block':'none';if(a)b.textContent=a.l}
 
 // ---------- Controles ----------
-const keys={};addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e')resolve();if(e.key===' ')fire();if(e.key.toLowerCase()==='f')toggleCar();if(e.key.toLowerCase()==='g'&&act)act.f();if(e.key.toLowerCase()==='q')cycleWeapon();if(e.key.toLowerCase()==='c')toggleCover();if(e.key.toLowerCase()==='v')startRoll();if(e.key.toLowerCase()==='x')swapShoulder()});
+const keys={};addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e')resolve();if(e.key===' ')fire();if(e.key.toLowerCase()==='f')toggleCar();if(e.key.toLowerCase()==='g'&&act)act.f();if(e.key.toLowerCase()==='q')cycleWeapon();if(e.key.toLowerCase()==='r')grabLoot();if(e.key.toLowerCase()==='c')toggleCover();if(e.key.toLowerCase()==='v')startRoll();if(e.key.toLowerCase()==='x')swapShoulder()});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 let joy={x:0,y:0},jid=null,jcx=0,jcy=0;const J=$('joy'),S=$('stick'),JZ=$('jz');
 const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -1606,7 +1737,9 @@ cv.addEventListener('wheel',e=>{dist=Math.min(ZMAX,Math.max(ZMIN,dist+e.deltaY*.
 // ---------- Loop ----------
 // Câmera: colisão com paredes (não atravessa; ao entrar em prédios o personagem aparece), mira sobre o ombro com zoom
 const _cv=new THREE.Vector3(),_cd=new THREE.Vector3(),_cs=new THREE.Vector3();let camD=9;
-function camUpdate(dt,P){
+let envIn=false;
+function setEnv(on){if(on===envIn)return;envIn=on;scene.background.set(on?0x0e0f12:0xdcc9a0);scene.fog.color.set(on?0x0e0f12:0xdcc9a0);scene.fog.near=on?70:45;scene.fog.far=on?170:185}
+function camUpdate(dt,P){setEnv(!!inside);
  {const ts=(cov&&aimOn&&cov.s)?cov.s:shSide;shO+=(ts-shO)*Math.min(1,dt*9)}
  const kk=1-Math.exp(-(aimOn?32:14)*dt);
  camYaw+=(yawT-camYaw)*kk;camPitch+=(pitchT-camPitch)*kk;
@@ -1815,7 +1948,7 @@ function crouchPose(P){
   if(t<.55)x=S*(1-2*t/.55);else{const k=(t-.55)/.45,e=k*k*(3-2*k);x=S*(-1+2*e);sw=Math.sin(Math.PI*k);lift=CR.LIFT*w*sw}
   const r=crLeg(H-lift,CR.D+x);th[i]=r[0];kn[i]=r[1];pw[i]=CR.HEEL+.3*sw}
  return{H,lean:CR.LEAN+.03*w*Math.sin(2*ph+.6),th,kn,pw,w}}
-function bodyPose(){if(pl.rag){vOff.y=0;vOff.z=0;return}const P=pl.parts,rolling=rollEnd>time,cp=!rolling&&crC>.001?crouchPose(P):null;let rx=rolling?0:(P.lean||0),sc=1,oy=rolling?0:(P.drop||0),oz=0,tk=0,u=0;
+function bodyPose(){if(pl.rag){vOff.y=0;vOff.z=0;return}const P=pl.parts,rolling=rollEnd>time,cp=!rolling&&crC>.001?crouchPose(P):null;let rx=rolling?0:(P.lean||0)+(P.bobX||0),sc=1,oy=rolling?0:(P.drop||0),oz=0,tk=0,u=0;
  if(cp){const hb=(1.04+(P.drop||0))*(1-crC)+cp.H*crC;rx=(P.lean||0)*(1-crC)+cp.lean*crC;oy=hb-1.04*Math.cos(rx);oz=-1.04*Math.sin(rx)-CR.D*crC} // gira em torno do quadril: ele fica baixo e atrás dos pés
  const dh=cp?-.65*rx:0; // cabeça fica mais erguida que o tronco
  pl._rx=rolling?0:rx; // usado pela empunhadura para manter o cano apontado certo
@@ -1824,7 +1957,7 @@ function bodyPose(){if(pl.rag){vOff.y=0;vOff.z=0;return}const P=pl.parts,rolling
   const th=rkAt(RK.th,u),ps=rkAt(RK.ph,u),kn=rkAt(RK.kn,u),ct=Math.cos(th),a=RPIV,m=Math.min(-a*ct,(1.2-a)*ct,-.52*Math.cos(th+ps)-a*ct,-.52*Math.cos(th+ps)-.52*Math.cos(th+ps+kn)-a*ct),H=Math.max(rkAt(RK.hh,u),-m-.12); // nunca afunda mais que 12 cm no chão
   rx=th;oy=H-(1.04+a)*ct;oz=-(1.04+a)*Math.sin(th)} // gira em torno do meio do tronco
  if(faint&&!faint.onboard){rx=-Math.PI/2;oy=0;oz=0;player.position.y=.3}player.rotation.x=rx;
- player.rotation.z=.28*Math.max(-1,Math.min(1,leanOff*(leanSide<0?-1:1)+leanN)); // corpo torto ao espiar na quina: inverte conforme o lado (direita/esquerda)
+ player.rotation.z=.28*Math.max(-1,Math.min(1,leanOff*(leanSide<0?-1:1)+leanN))+(rolling?0:(P.rollZ||0)); // corpo torto ao espiar na quina: inverte conforme o lado (direita/esquerda)
  player.scale.set(sc*(aimOn&&((cov&&cov.s)||shSide)<0?-1:1),sc,sc);vOff.y=oy;vOff.z=oz;
  if(dh!==0||pl._ht){pl._ht=dh!==0;const sy=.884,c=Math.cos(dh),sn=Math.sin(dh),hy=1.86*(1-HD)+.06;for(const h of[P.hd,pl.lg])if(h){h.rotation.x=dh;h.position.y=hy+sy*(1-c);h.position.z=-sy*sn}} // gira a cabeça em torno do pescoço (cabelo/óculos acompanham)
  const f=Math.max(crC,tk);
@@ -1883,8 +2016,39 @@ function ejectCasing(P,fx,fz){let c=0;for(const p of phProps)if(p.kind==='shell'
  if(c>24)for(const p of phProps)if(p.kind==='shell'){p.age=p.life+1;break}
  const m=new THREE.Mesh(SHELL_G,SHELL_M),rx=fz,rz=-fx,k=1.6+Math.random();m.position.set(P.x+rx*.25+fx*.4,1.25,P.z+rz*.25+fz*.4);
  throwProp(m,new THREE.Vector3(rx*k-fx*.4,2.2+Math.random()*1.2,rz*k-fz*.4),new THREE.Vector3((Math.random()-.5)*30,0,(Math.random()-.5)*30),{h:.012,e:.45,life:4,rad:.02,kind:'shell'})}
-function dropGun(n){const g=new THREE.Mesh(new THREE.BoxGeometry(.1,.1,.4),mat(0x111111)),p=n.mesh.position;g.position.set(p.x+.3,1.1,p.z);
- throwProp(g,new THREE.Vector3((Math.random()-.5)*3,2+Math.random()*1.5,(Math.random()-.5)*3),new THREE.Vector3((Math.random()-.5)*14,(Math.random()-.5)*14,(Math.random()-.5)*14),{h:.06,e:.3,life:9,rad:.15,own:true})}
+// ---- Armas caídas (loot) ----
+const LOOT=[];
+function gunMesh(id){const g=new THREE.Group(),dk=mat(0x15171a),w=WEAPONS[id]||WEAPONS[2],L=id>=4?.85:id===3?.5:.34;
+ const b=new THREE.Mesh(new THREE.BoxGeometry(.09,.1,L),dk);g.add(b);
+ const gr=new THREE.Mesh(new THREE.BoxGeometry(.07,.16,.09),dk);gr.position.set(0,-.12,-L*.3);g.add(gr);
+ const st=new THREE.Mesh(new THREE.BoxGeometry(.095,.03,L*.5),new THREE.MeshBasicMaterial({color:0xffc83c}));st.position.set(0,.065,0);g.add(st);return g}
+function dropGun(n,calm){const id=n.wk>0?n.wk:2,g=gunMesh(id),p=n.mesh.position,P=player.position;
+ let dx=p.x-P.x,dz=p.z-P.z;const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;const a=(Math.random()-.5)*1.4,ca=Math.cos(a),sa=Math.sin(a),tx=dx*ca-dz*sa,tz=dx*sa+dz*ca,sp=calm?3:9+Math.random()*3; // arremessada para longe (calm: só cai)
+ g.position.set(p.x+.3,1.2,p.z);
+ const pr=throwProp(g,new THREE.Vector3(tx*sp,calm?2:6,tz*sp),new THREE.Vector3((Math.random()-.5)*14,(Math.random()-.5)*14,(Math.random()-.5)*14),{h:.06,e:.3,life:100,rad:.15,own:false});
+ const w=WEAPONS[id],e={p:pr,wk:id,ammo:Math.max(1,Math.round(w.pack*(.5+Math.random()*.5))),gone:false,exp:time+100};
+ LOOT.push(e);if(LOOT.length>14){const o=LOOT.shift();o.gone=true;o.p.age=o.p.life+1}return e}
+function takeLoot(e){e.gone=true;e.p.age=e.p.life+1;const i=LOOT.indexOf(e);if(i>=0)LOOT.splice(i,1)}
+// bandido que perde a arma: ela voa longe, ele se abala e corre para pegá-la — janela para o jogador prendê-lo
+function disarmNPC(n){if(n.dis||!n.armed)return;n.armed=false;if(n.grab)release(n,true);
+ n.dis=dropGun(n);n.disT=time+9;n.down=Math.max(n.down||0,.7);hitReact(n,1.2);if(!n.react)n.react='fight';msg('Arma arremessada! Prenda-o antes que ele a pegue de volta',2200)}
+function pickLoot(e){const id=e.wk,w=WEAPONS[id],inM=!mDone,has=own.includes(id);
+ if(inM&&!has){own.push(id);ammo[id]=Math.min(w.max,e.ammo);msg(w.n+' recolhida! Adicionada ao inventário',2200)}
+ else{if(has&&(ammo[id]||0)>=w.max){if(!e.warned){e.warned=true;msg('Munição da '+w.s+' cheia',1200)}return}
+  ammo[id]=Math.min(w.max,(ammo[id]||0)+e.ammo);msg(has?('+'+e.ammo+' munições ('+w.s+') — você já possui essa arma'):('+'+e.ammo+' munições ('+w.s+') — fora de missão só dá munição'),2200)}
+ takeLoot(e);updWpnBtn();hud();saveGame(true)}
+let lootNear=null;
+function lootStep(){lootNear=null;const P=player.position;let bd=2.3;
+ for(let i=LOOT.length-1;i>=0;i--){const e=LOOT[i],m=e.p.m;if(e.gone||!m.parent){LOOT.splice(i,1);continue}
+  if(driving||riding||faint||m.position.y>.45)continue;
+  const d=Math.hypot(m.position.x-P.x,m.position.z-P.z);if(d<bd){bd=d;lootNear=e}}
+ const b=$('pick');if(b){const on=!!lootNear;if(on!==lootStep.on){lootStep.on=on;b.style.display=on?'block':'none'}
+  if(on){const t='PEGAR<br>'+WEAPONS[lootNear.wk].s;if(b._t!==t){b._t=t;b.innerHTML=t}}}}
+function grabLoot(){if(faint||driving||riding||!lootNear)return;const e=lootNear;lootNear=null;
+ // bandido que corria para a arma se rende ao perdê-la de vez
+ const ow=npcs.find(n=>n.dis===e);pickLoot(e);
+ if(ow&&e.gone&&!ow.dead&&!ow.arrested){ow.dis=null;surrender(ow,'arm');msg('Arma tomada! O bandido se rendeu — prenda-o',2200)}}
+$('pick').addEventListener('pointerdown',e=>{e.preventDefault();grabLoot()});
 
 // --- Ragdoll (Verlet): 16 pontos ligados por restrições de distância ---
 // 0 pelve, 1 peito, 2 cabeça, 3/4 ombros E/D, 5/6 cotovelos, 7/8 mãos, 9/10 quadris, 11/12 joelhos, 13/14 tornozelos, 15 barriga (dá espessura ao tronco)
@@ -1958,7 +2122,7 @@ function ragEnd(o){const rg=o.rag;if(!rg)return;ragDrop(rg);o.rag=null;
  P.hd.quaternion.identity();P.hd.position.set(0,rg.hy,0);const lg=o.lg||(o.lk&&o.lk.lg);if(lg){lg.quaternion.identity();lg.position.set(0,rg.hy,0)}
  if(o.tag)o.tag.position.set(0,2.55,0);g.position.y=0}
 function physStep(dt){
- phPropStep(dt);
+ phPropStep(dt);lootStep();
  if(pl.rag){if(!faint)ragEnd(pl);else if(faint.onboard&&!pl.rag.sleep)pl.rag.sleep=true}
  phAcc+=dt;let k=0;while(phAcc>=PH_DT&&k<3){phAcc-=PH_DT;k++;for(let i=0;i<ragAct.length;i++)ragStep(ragAct[i])}if(phAcc>PH_DT*3)phAcc=0;
  for(let i=ragAct.length-1;i>=0;i--){const rg=ragAct[i];if(!rg.g.parent){ragDrop(rg);continue}ragApply(rg);if(rg.sleep)ragDrop(rg)}}
@@ -1966,7 +2130,7 @@ function physStep(dt){
 function ragKillNPC(n,from){
  if(n.ragRg){const rg=n.ragRg;n.ragRg=null;rg.sleep=false;rg.t=0;rg.still=0;if(ragAct.indexOf(rg)<0)ragAct.push(rg);bloodPool(rg);return rg}
  if(n.hr)hrEnd(n);const m=n.mesh;if(n.sy0!=null)m.scale.y=n.sy0;if(n.down>0)m.position.y=0;
- if(n.armed){n.armed=false;dropGun(n)}
+ if(n.armed){n.armed=false;dropGun(n,true)}
  const F=from||pos(),dx=m.position.x-F.x,dz=m.position.z-F.z,dl=Math.hypot(dx,dz)||1,w=WEAPONS[eq]||{},f=from?3:(w.melee?2:3+1.5*(w.dmg||1)),
   sp=n.down>0?0:(n.v||0),ry=m.rotation.y;
  const rg=ragStart({g:m,parts:n.parts,get lg(){return n.lk&&n.lk.lg}},{v:{x:Math.sin(ry)*sp,y:0,z:Math.cos(ry)*sp},imp:{x:dx/dl*f,y:1.8+f*.25,z:dz/dl*f}});bloodPool(rg);return rg}
@@ -2076,6 +2240,7 @@ function loop(){
   else if(n.hr)hrEnd(n);
   const cvSp=(crim&&n.armed&&!esc&&dp<Math.min(45,ew(n).er*1.6+8)&&(n.react==='fight'||n.underFire))?coverAI(n,p,P,dp,dt):-1;if(cvSp<0){if(n.sy0!=null&&n.mesh.scale.y!==n.sy0)n.mesh.scale.y=n.sy0;if(n.cs){n.cs=null;n.cv=null}}
   if(cvSp>=0)sp=cvSp;
+  else if(n.dis){const g=n.dis,gp=g.p.m.position;if(g.gone||!gp||time>n.disT){n.dis=null;n.react='flee';n.fleeT=time+6}else{sp=5.8;n.tgt.set(gp.x,0,gp.z);n.timer=.4;if(Math.hypot(p.x-gp.x,p.z-gp.z)<1.1&&gp.y<.5){takeLoot(g);n.armed=true;n.wk=g.wk;n.dis=null;n.react='fight';n.fireT=1.3;msg('Ele pegou a arma de volta!',1500)}}}
   else if(n.fleeing){sp=5.6;n.tgt.set(n.exit.x,0,n.exit.z);n.timer=1;if(Math.hypot(p.x-n.exit.x,p.z-n.exit.z)<2||time>n.fleeEnd){n.boarded=true;n.mesh.visible=false;continue}} // refém solto corre para fora do lugar
   else if(n.armed&&!esc&&dp<(n.robber||n.kid?ew(n).er:20)&&seeBody(n,p,P)){sp=0;n.fireAim=time+.3;n.mesh.rotation.y=Math.atan2(P.x-p.x,P.z-p.z);if(n.react&&n.dodge>time){const l=dp||1;sp=2.8;n.tgt.set(p.x-(P.z-p.z)/l*n.dodgeDir*4,0,p.z+(P.x-p.x)/l*n.dodgeDir*4);n.timer=.5}if(n.grab){n.grabT-=dt;const c=n.grab;if(c.dead)n.grab=null;else{c.mesh.position.set(p.x+Math.sin(n.mesh.rotation.y)*.9,0,p.z+Math.cos(n.mesh.rotation.y)*.9);if(n.grabT<=0)killCiv(n)}}else{if(!n.grabTried){n.grabTried=true;grab(n)}n.fireT-=dt;if(n.fireT<=0)bandFire(n,(n.lair?.75:1)*(1.1-.1*mStars))}}
   else if(esc){n.tgt.copy(gcar.g.position);n.timer=9;sp=4.5;if(Math.hypot(p.x-gcar.g.position.x,p.z-gcar.g.position.z)<2.8){n.boarded=true;n.mesh.visible=false;continue}}
@@ -2109,7 +2274,7 @@ function loop(){
     if(n.sk>=2&&(n.rt||0)<=time){n.timer=0;const w=npcRoute(n,p,n.rx==null?n.tgt.x:n.rx,n.rz==null?n.tgt.z:n.rz);if(w&&w.length){n.sk=0;n.dtX=w[0][0];n.dtZ=w[0][1];n.dtT=time+8}else if(w===null){n.sk=0;n.rt=time+2.5;n.v=0}}}
    else n.sk=0;
    n.pd=dd}
-  if(dp<110&&!n.lodLow&&!n.cull){if(n.tied)tiedPose(n);else{n.ph+=dt*gaitRate(n.v);walk(n.parts,n.ph,n.v>.25,dt,n.v);n.mesh.position.y=n.parts.drop||0;n.mesh.rotation.x=n.parts.lean||0;
+  if(dp<110&&!n.lodLow&&!n.cull){if(n.tied)tiedPose(n);else{n.ph+=dt*gaitRate(n.v);walk(n.parts,n.ph,n.v>.25,dt,n.v);n.mesh.position.y=n.parts.drop||0;n.mesh.rotation.x=(n.parts.lean||0)+(n.parts.bobX||0);n.mesh.rotation.z=n.parts.rollZ||0;
    if(n.wm){n._rx=n.mesh.rotation.x;poseArm(n,n.fireAim>time,0)} // segura a arma com as duas mãos (mesma empunhadura do jogador)
    if(n.pan>time){const P2=n.parts,w=Math.sin(time*10+n.ph)*.3;P2.armL.rotation.x=-2.75+w;P2.armR.rotation.x=-2.75-w;if(P2.armL.elbow){P2.armL.elbow.rotation.x=-.25;P2.armR.elbow.rotation.x=-.25}}}}
   if(dp<nd&&!driving&&!riding&&!n.cop&&!n.fleeing){nd=dp;near=n}}
@@ -2139,7 +2304,7 @@ const okN=t=>/^[A-Za-z0-9_]{3,12}$/.test(t),okP=t=>t.length>=4&&t.length<=40,sf=
 function ls(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k));v===null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
 const remoteLooks={};let lookT=0,lastSendT=0,lsx=1e9,lsz=1e9,lsr=0,wasMov=false;
 const wrapA=a=>Math.atan2(Math.sin(a),Math.cos(a)),carPos=()=>({x:+car.g.position.x.toFixed(2),z:+car.g.position.z.toFixed(2),r:+wrapA(car.g.rotation.y).toFixed(2),h:Math.round(carHp)});
-function plainMenu(){$('menu').classList.remove('ap');curMenu=''}
+function plainMenu(){$('menu').classList.remove('ap','shop','mis','phn');curMenu=''}
 token=ls('pc_token');
 // Endereço do servidor: o mesmo site que serviu a página (ou ?server=wss://... na URL)
 const SERVER=(()=>{let s=new URLSearchParams(location.search).get('server')||window.PC_SERVER||'';if(!s&&location.protocol.indexOf('http')===0)s=location.origin;return s.replace(/^http/,'ws').replace(/\/+$/,'')})();
@@ -2274,7 +2439,7 @@ function updRemotes(dt){
   if(Math.hypot(dx,dz)>14){p.x=s.x;p.z=s.z}else{p.x+=dx*f;p.z+=dz*f}
   const sp=dt>0?Math.hypot(dx,dz)*f/dt:0;const rsp=Math.min(sp,7);r.ph+=dt*gaitRate(Math.max(rsp,.5));if(!r.lodLow&&!r.cull){walk(r.parts,r.ph,sp>.8,dt,rsp);poseArm(r,false,0)}
   r.g.rotation.y+=wrapA(s.r-r.g.rotation.y)*Math.min(1,dt*14);
-  if(r.rag)ragEnd(r);r.g.rotation.x=r.parts.lean||0;p.y=r.parts.drop||0
+  if(r.rag)ragEnd(r);r.g.rotation.x=(r.parts.lean||0)+(r.parts.bobX||0);r.g.rotation.z=r.parts.rollZ||0;p.y=r.parts.drop||0
   r.g.visible=!(k===rd||seats.includes(k)||r.boarded)} // quem está na viatura não aparece: só o nome sobre o carro
  updCarTag()}
 function showInvite(d){plainMenu();$('mbox').innerHTML=`<b>✉ ${sf(d.from)} convidou você para a sala dele</b><button data-a="acc" data-n="${sf(d.host)}">Aceitar</button><button data-a="rej" style="background:#444">Recusar</button>`;$('menu').style.display='flex';menuT=performance.now()}
@@ -2307,18 +2472,29 @@ function openArsenal(){plainMenu();curMenu='arsenal';const was=$('menu').style.d
  if(!vk.length)h+='<div style="font-size:12px;color:#9fb0c3">Nenhum colete. Compre na loja da Central.</div>';
  vk.forEach(id=>{const v=VESTS[id],d=Math.round(vests[id]);h+=`<div class="srow"><div class="si"><b>${v.n}</b> • ${Math.round(v.prot*100)}%<br><small>Durabilidade ${d}/${v.dur}</small></div><button class="${vestOn===id?'off':'ok'}" data-a="ev" data-n="${id}">${vestOn===id?'Tirar':'Vestir'}</button></div>`});
  $('mbox').innerHTML=h+'<button data-a="x" style="background:#444;text-align:center;margin-top:10px">Fechar</button>';$('menu').style.display='flex';$('mbox').scrollTop=st;if(!was)menuT=performance.now()}
-function openShop(t){if(typeof t==='string')shopTab=t;plainMenu();curMenu='shop';const was=$('menu').style.display==='flex',st=$('mbox').scrollTop;
- let h='<b style="font-size:16px">🏪 Loja da Delegacia</b><div style="font-size:13px;margin:4px 0">💵 R$ '+money+'</div>'+[['w','🔫 Armas'],['a','📦 Munição'],['v','🦺 Coletes']].map(([k,n])=>`<button class="chip${shopTab===k?' on':''}" data-a="shop_t" data-n="${k}">${n}</button>`).join('');
- if(shopTab==='w')WEAPONS.forEach((w,id)=>{if(!id)return;const has=own.includes(id);h+=`<div class="srow"><div class="si"><b>${w.n}</b><br><small>${w.d} • dano ×${w.dmg} • ${w.range} m</small></div>`+(has?`<button class="${eq===id?'off':'ok'}" data-a="eq" data-n="${id}">${eq===id?'Equipada':'Equipar'}</button>`:`<button class="${money>=w.price?'ok':'off'}" data-a="bw" data-n="${id}">R$ ${w.price}</button>`)+'</div>'});
- else if(shopTab==='a'){if(own.length<2)h+='<div style="font-size:12px;color:#9fb0c3;margin-top:8px">Compre uma arma de fogo primeiro.</div>';
-  own.forEach(id=>{if(!id)return;const w=WEAPONS[id],n=ammo[id]||0,full=n>=w.max;h+=`<div class="srow"><div class="si"><b>${w.n}</b><br><small>${n}/${w.max} • pacote de ${w.pack}</small></div><button class="${(!full&&money>=w.pp)?'ok':'off'}" data-a="ba" data-n="${id}">${full?'Cheia':'+'+w.pack+' • R$ '+w.pp}</button></div>`})}
- else VESTS.forEach((v,id)=>{const has=vests[id]!=null,d=Math.round(vests[id]||0),rc=has?Math.ceil(v.price*(1-d/v.dur)):0;
-  h+=`<div class="srow"><div class="si"><b>${v.n}</b><br><small>Proteção ${Math.round(v.prot*100)}% • durabilidade ${has?d+'/':''}${v.dur}</small></div><div style="display:flex;flex-direction:column;gap:5px">`+(has?`<button class="${vestOn===id?'off':'ok'}" data-a="ev" data-n="${id}">${vestOn===id?'Equipado':'Equipar'}</button>`+(rc>0?`<button class="${money>=rc?'ok':'off'}" data-a="rv" data-n="${id}">Reparar R$ ${rc}</button>`:''):`<button class="${money>=v.price?'ok':'off'}" data-a="bv" data-n="${id}">R$ ${v.price}</button>`)+'</div></div>'});
- $('mbox').innerHTML=h+'<button data-a="x" style="background:#444;text-align:center;margin-top:10px">Fechar</button>';$('menu').style.display='flex';$('mbox').scrollTop=st;if(!was)menuT=performance.now()}
+
+// ---------- Ícones vetoriais detalhados das armas ----------
+const WSVG={
+1:'<svg viewBox="0 0 200 80"><defs><linearGradient id="gm1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7b8794"/><stop offset="1" stop-color="#323a44"/></linearGradient></defs><rect x="100" y="26" width="72" height="10" rx="2" fill="url(#gm1)"/><rect x="100" y="23" width="70" height="3" fill="#8a96a3"/><rect x="164" y="19" width="5" height="6" fill="#1a1d21"/><path d="M58 24H106V44H70Z" fill="#2c333b"/><rect x="72" y="21" width="32" height="24" rx="5" fill="url(#gm1)"/><g stroke="#1a1d21" stroke-width="1.6"><path d="M80 23v20M88 23v20M96 23v20"/></g><path d="M58 22l-9-5 2 10z" fill="#3a424b"/><path d="M58 40L76 43 68 74Q58 79 47 72L52 45Z" fill="#7a5530"/><path d="M54 52l16 3M53 58l15 3M52 64l14 3" stroke="#4a3320" stroke-width="1.5"/><path d="M78 45q9 15 22 1" fill="none" stroke="#2c333b" stroke-width="3"/><path d="M84 40l2 8" stroke="#9aa5b1" stroke-width="2.5"/></svg>',
+2:'<svg viewBox="0 0 200 80"><defs><linearGradient id="gm2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b7683"/><stop offset="1" stop-color="#2b323a"/></linearGradient></defs><rect x="46" y="22" width="114" height="17" rx="3" fill="url(#gm2)"/><g stroke="#161a1e" stroke-width="1.8"><path d="M54 24v13M59 24v13M64 24v13M69 24v13"/></g><rect x="112" y="25" width="26" height="6" rx="1" fill="#14181c"/><rect x="158" y="26" width="9" height="8" fill="#14181c"/><rect x="50" y="18" width="6" height="4" fill="#9aa5b1"/><rect x="150" y="18" width="5" height="4" fill="#9aa5b1"/><path d="M50 39H134V47H98L92 51H50Z" fill="#242a31"/><path d="M52 39L76 39 71 73Q59 77 48 71Z" fill="#1c2127"/><g stroke="#2e353d" stroke-width="1.5"><path d="M55 48l17 0M54 54l16 0M53 60l15 0M52 66l14 0"/></g><path d="M92 47q5 14 22 6" fill="none" stroke="#242a31" stroke-width="3"/><path d="M90 44l2 9" stroke="#9aa5b1" stroke-width="2.5"/><rect x="60" y="72" width="12" height="3" fill="#0e1114"/></svg>',
+3:'<svg viewBox="0 0 200 80"><defs><linearGradient id="gm3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b7683"/><stop offset="1" stop-color="#2b323a"/></linearGradient></defs><rect x="40" y="24" width="102" height="20" rx="3" fill="url(#gm3)"/><rect x="58" y="19" width="44" height="5" fill="#1c2127"/><rect x="140" y="26" width="42" height="15" rx="2" fill="#242a31"/><g fill="#0e1114"><circle cx="150" cy="33" r="2.4"/><circle cx="159" cy="33" r="2.4"/><circle cx="168" cy="33" r="2.4"/></g><rect x="180" y="29" width="9" height="9" fill="#14181c"/><path d="M96 44h15l-3 34H93Z" fill="#1c2127"/><path d="M64 44h17l-4 30H61Z" fill="#242a31"/><path d="M6 27h36v7H12v17H6Z" fill="#2b323a"/><rect x="4" y="25" width="6" height="26" rx="2" fill="#1c2127"/><path d="M84 44q5 12 12 0" fill="none" stroke="#242a31" stroke-width="3"/><rect x="104" y="29" width="22" height="5" rx="1" fill="#14181c"/></svg>',
+4:'<svg viewBox="0 0 200 80"><defs><linearGradient id="gm4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#78838f"/><stop offset="1" stop-color="#2e353d"/></linearGradient></defs><rect x="76" y="24" width="118" height="8" rx="2" fill="url(#gm4)"/><rect x="76" y="34" width="100" height="7" rx="2" fill="#38404a"/><circle cx="190" cy="22" r="2" fill="#d9d9d9"/><rect x="104" y="33" width="36" height="12" rx="4" fill="#7a5530"/><g stroke="#4a3320" stroke-width="1.5"><path d="M110 35v8M116 35v8M122 35v8M128 35v8M134 35v8"/></g><rect x="48" y="22" width="32" height="24" rx="3" fill="#2c333b"/><rect x="60" y="25" width="16" height="4" fill="#0e1114"/><path d="M50 26L10 34 5 60 17 64 50 48Z" fill="#7a5530"/><path d="M12 42l30-9M11 50l32-8" stroke="#4a3320" stroke-width="1.4"/><path d="M62 46q6 12 18 2" fill="none" stroke="#2c333b" stroke-width="3"/><path d="M64 46l2 7" stroke="#9aa5b1" stroke-width="2.5"/></svg>',
+5:'<svg viewBox="0 0 200 80"><defs><linearGradient id="gm5" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b7683"/><stop offset="1" stop-color="#2b323a"/></linearGradient></defs><path d="M42 28L6 32 6 55 19 57 42 45Z" fill="#242a31"/><rect x="40" y="24" width="64" height="21" rx="3" fill="url(#gm5)"/><rect x="62" y="12" width="36" height="10" rx="3" fill="#161a1e"/><circle cx="96" cy="17" r="3.6" fill="#3b82f6" opacity=".7"/><rect x="66" y="22" width="26" height="3" fill="#161a1e"/><rect x="104" y="26" width="52" height="14" rx="2" fill="#2c333b"/><g fill="#0e1114"><rect x="110" y="29" width="8" height="3"/><rect x="122" y="29" width="8" height="3"/><rect x="134" y="29" width="8" height="3"/></g><rect x="156" y="30" width="30" height="5" fill="#3a424b"/><rect x="184" y="27" width="7" height="11" fill="#14181c"/><path d="M72 45h16q7 17 -2 31H70q6 -13 2 -31Z" fill="#1c2127"/><path d="M50 45h15l-6 27H45Z" fill="#242a31"/><path d="M78 40q-2 6 -10 7" fill="none" stroke="#242a31" stroke-width="2.5"/></svg>'};
+const VSVG=c=>'<svg viewBox="0 0 80 80" width="82" height="82"><defs><linearGradient id="gv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+c+'"/><stop offset="1" stop-color="#0b0f16"/></linearGradient></defs><path d="M14 14l16-6q10 8 20 0l16 6 6 16-9 6v34H17V36l-9-6z" fill="url(#gv)" stroke="#ffffff55" stroke-width="2"/><path d="M30 8q10 12 20 0" fill="none" stroke="#ffffff66" stroke-width="2"/><path d="M24 44h32M24 54h32M24 64h32" stroke="#ffffff33" stroke-width="2"/></svg>';
+const wbar=(l,p,v,cl)=>`<div class="bar"><span>${l}</span><i><u class="${cl||''}" style="width:${Math.max(4,Math.min(100,p))}%"></u></i><em>${v}</em></div>`;
+function openShop(t){if(typeof t==='string')shopTab=t;plainMenu();curMenu='shop';$('menu').classList.add('shop');const was=$('menu').style.display==='flex',st=$('mbox').scrollTop;
+ let h='<div class="hd"><div class="lg">🏪</div><div class="tt"><b>Loja da Delegacia</b><small>Equipamento oficial</small></div><div class="mn">R$ '+money+'</div></div><div class="tabs">'+[['w','🔫 Armas'],['a','📦 Munição'],['v','🦺 Coletes']].map(([k,n])=>`<button class="chip${shopTab===k?' on':''}" data-a="shop_t" data-n="${k}">${n}</button>`).join('')+'</div><div class="bd">';
+ if(shopTab==='w')WEAPONS.forEach((w,id)=>{if(!id)return;const has=own.includes(id),cl=eq===id;
+  h+=`<div class="wc${cl?' cur':''}"><div class="wi">${WSVG[id]||''}<span class="bg${has?' ok':''}">${cl?'EQUIPADA':has?'NO INVENTÁRIO':w.auto?'AUTOMÁTICA':'SEMI-AUTO'}</span></div><div class="wt"><b>${w.n}</b><span>${w.pack} tiros/pacote • máx ${w.max}</span></div><div class="wd">${w.d}</div><div class="bars">${wbar('Dano',w.dmg/2.2*100,'×'+w.dmg,'r')}${wbar('Cadência',Math.min(100,(1/w.cd)/10*100),(1/w.cd).toFixed(1)+'/s','o')}${wbar('Alcance',w.range/90*100,w.range+' m','g')}</div><div class="wf">`+(has?`<span class="pr">Comprada ✓</span><button class="${cl?'off':'ok'}" data-a="eq" data-n="${id}">${cl?'Equipada':'Equipar'}</button>`:`<span class="pr">R$ ${w.price}</span><button class="${money>=w.price?'ok':'off'}" data-a="bw" data-n="${id}">${money>=w.price?'Comprar':'Sem saldo'}</button>`)+'</div></div>'});
+ else if(shopTab==='a'){if(own.length<2)h+='<div class="card" style="margin-top:10px;font-size:12px;color:#9fb0c3">Compre uma arma de fogo primeiro.</div>';
+  own.forEach(id=>{if(!id)return;const w=WEAPONS[id],n=ammo[id]||0,full=n>=w.max;h+=`<div class="wc"><div class="wi" style="height:84px">${WSVG[id]||''}</div><div class="wt"><b>${w.n}</b><span>pacote de ${w.pack}</span></div><div class="bars">${wbar('Munição',n/w.max*100,n+'/'+w.max,n/w.max<.25?'r':'g')}</div><div class="wf"><span class="pr">R$ ${w.pp}</span><button class="${(!full&&money>=w.pp)?'ok':'off'}" data-a="ba" data-n="${id}">${full?'Cheia':'+'+w.pack+' munições'}</button></div></div>`})}
+ else VESTS.forEach((v,id)=>{const has=vests[id]!=null,d=Math.round(vests[id]||0),rc=has?Math.ceil(v.price*(1-d/v.dur)):0,on=vestOn===id;
+  h+=`<div class="wc${on?' cur':''}"><div class="vi">${VSVG('#'+v.c.toString(16).padStart(6,'0'))}</div><div class="wt"><b>${v.n}</b><span>${on?'EQUIPADO':has?'NO INVENTÁRIO':''}</span></div><div class="bars">${wbar('Proteção',v.prot*100,Math.round(v.prot*100)+'%','g')}${wbar('Durabilidade',has?d/v.dur*100:100,(has?d+'/':'')+v.dur,'o')}</div><div class="wf">`+(has?`<div class="col"><button class="${on?'off':'ok'}" data-a="ev" data-n="${id}">${on?'Equipado':'Equipar'}</button>`+(rc>0?`<button class="${money>=rc?'ok':'off'}" data-a="rv" data-n="${id}">Reparar R$ ${rc}</button>`:'')+'</div>':`<span class="pr">R$ ${v.price}</span><button class="${money>=v.price?'ok':'off'}" data-a="bv" data-n="${id}">${money>=v.price?'Comprar':'Sem saldo'}</button>`)+'</div></div>'});
+ $('mbox').innerHTML=h+'</div><div class="ftr"><button data-a="x">Fechar</button></div>';$('menu').style.display='flex';$('mbox').scrollTop=st;if(!was)menuT=performance.now()}
 function refreshMenu(){if($('menu').style.display!=='flex')return;if(curMenu==='shop')openShop();else if(curMenu==='arsenal')openArsenal()}
 function equip(id,q){if(!own.includes(id))return;eq=id;setHandWeapon(pl,id);updWpnBtn();hud();if(!q)msg(WEAPONS[id].n+' equipada',1200);saveGame();sendPres(true);refreshMenu()}
 function buyW(id){const w=WEAPONS[id];if(!w||!id||own.includes(id))return;if(money<w.price)return msg('Dinheiro insuficiente',1500);
- money-=w.price;own.push(id);ammo[id]=w.pack;msg(w.n+' comprada! (+'+w.pack+' munições)',2200);equip(id,true);saveGame(true);openShop()}
+ money-=w.price;own.push(id);ammo[id]=Math.min(w.max,(ammo[id]||0)+w.pack);msg(w.n+' comprada! (+'+w.pack+' munições)',2200);equip(id,true);saveGame(true);openShop()}
 function buyAmmo(id){const w=WEAPONS[id];if(!w||!id||!own.includes(id))return;if((ammo[id]||0)>=w.max)return msg('Munição cheia',1200);if(money<w.pp)return msg('Dinheiro insuficiente',1500);
  money-=w.pp;ammo[id]=Math.min(w.max,(ammo[id]||0)+w.pack);updWpnBtn();hud();saveGame(true);openShop()}
 function buyV(id){const v=VESTS[id];if(!v||vests[id]!=null)return;if(money<v.price)return msg('Dinheiro insuficiente',1500);
@@ -2475,20 +2651,32 @@ function updRefs(dt){for(let q=refs.length-1;q>=0;q--){const f=refs[q],o=ownerPo
   else if(f.ph==='back'){if(svcDrive(f,dt,18)){scene.remove(f.g);refs.splice(q,1)}}}}
 
 // --- Celular ---
-function openPhone(){plainMenu();curMenu='phone';const was=$('menu').style.display==='flex',st=$('mbox').scrollTop;
- const cd=Math.max(0,Math.ceil((refCdEnd-performance.now())/1000)),broken=carHp<=0;
- const row=(ic,t,d,b)=>`<div class="srow"><div class="si"><b>${ic} ${t}</b><br><small>${d}</small></div>${b}</div>`;
- const bt=(a,tx,on,n)=>`<button class="${on?'ok':'off'}" data-a="${a}"${n!=null?` data-n="${n}"`:''}>${tx}</button>`;
- let h='<b style="font-size:16px">📱 Celular</b><div style="font-size:12px;margin:4px 0">💵 R$ '+money+'</div>';
- h+=row('🚓','Reforços',`Dois policiais te acompanham e enfraquecem os criminosos por ${REF_DUR}s • R$ ${REF_COST}`,bt('ph_ref',cd?'⏳ '+cd+'s':'Chamar',!cd&&money>=REF_COST));
- h+=row('🛻','Reboque',broken?(tow?'Reboque a caminho • '+Math.ceil(towLeft())+'s':`Leva a viatura para a Oficina • R$ ${TOW_COST}`):'Só disponível com a viatura quebrada',bt('ph_tow',tow?'A caminho':'Chamar',broken&&!tow&&money>=TOW_COST));
- let ar='';const fl=Object.keys(remotes).filter(k=>remotes[k].fnt&&!ambs[k]);
- if(faint)ar+=row('🚑','Ambulância (você)',`Taxa fixa R$ ${AMB_FEE} • cobra só o que você tiver; grátis se estiver com R$ 0`,bt('ph_amb',ambs[myKey]?'A caminho':'Chamar',!ambs[myKey],myKey));
- fl.forEach(k=>{ar+=row('🚑','Ambulância p/ '+remotes[k].nk,'Socorrer parceiro desmaiado (a taxa é dele)',bt('ph_amb','Chamar',true,k))});
- if(!ar)ar=row('🚑','Ambulância',`Disponível quando um jogador desmaiar • taxa fixa R$ ${AMB_FEE} (só o que você tiver; grátis com R$ 0)`,bt('ph_amb','Indisponível',false));
- $('mbox').innerHTML=h+ar+'<button data-a="x" style="background:#444;text-align:center;margin-top:10px">Fechar</button>';
- $('menu').style.display='flex';$('mbox').scrollTop=st;if(!was)menuT=performance.now()}
+let phApp=null;
+function openPhone(){plainMenu();curMenu='phone';$('menu').classList.add('phn');const was=$('menu').style.display==='flex',st=($('mbox').querySelector('.body,.appb')||{}).scrollTop||0;
+ const cd=Math.max(0,Math.ceil((refCdEnd-performance.now())/1000)),broken=carHp<=0,nowD=new Date(),hh=nowD.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),dt=nowD.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+ const fl=Object.keys(remotes).filter(k=>remotes[k].fnt&&!ambs[k]),ambBadge=(faint&&!ambs[myKey]?1:0)+fl.length;
+ const bt=(a,tx,on,n)=>`<button class="pill${on?'':' off'}" data-a="${a}"${n!=null?` data-n="${n}"`:''}>${tx}</button>`;
+ const APPS={ref:['🚓','Reforços','linear-gradient(135deg,#1a73e8,#0b3d91)',cd?0:0],tow:['🛻','Reboque','linear-gradient(135deg,#f9ab00,#e37400)',broken&&!tow?1:0],amb:['🚑','Ambulância','linear-gradient(135deg,#ea4335,#a50e0e)',ambBadge],bank:['💳','Carteira','linear-gradient(135deg,#34a853,#0b6b2a)',0]};
+ const wifi=(typeof offline!=='undefined'&&offline)?'📴':'▂▄▆█';
+ let body;
+ if(!phApp){
+  let nt='';if(tow)nt+=`<div class="ntf"><b>REBOQUE</b>Reboque a caminho • ${Math.ceil(towLeft())}s</div>`;if(faint)nt+=`<div class="ntf"><b>ALERTA</b>Você está desmaiado — chame a ambulância.</div>`;else if(fl.length)nt+=`<div class="ntf"><b>ALERTA</b>${fl.map(k=>remotes[k].nk).join(', ')} precisa de socorro.</div>`;if(cd)nt+=`<div class="ntf"><b>REFORÇOS</b>Disponível novamente em ${cd}s</div>`;
+  const ap=k=>`<button class="app" data-a="ph_open" data-n="${k}"><i style="background:${APPS[k][2]}">${APPS[k][0]}${APPS[k][3]?`<s>${APPS[k][3]}</s>`:''}</i>${APPS[k][1]}</button>`;
+  body=`<div class="body"><div class="clk"><b>${hh}</b><small>${dt}</small></div>${nt}<div class="srch">🔍 <span>Pesquisar</span></div><div class="grid">${ap('ref')}${ap('tow')}${ap('amb')}${ap('bank')}</div><div class="dock"><button class="app" data-a="x"><i style="background:#ffffff22">✕</i>Fechar</button><span></span><span></span><span></span></div></div>`}
+ else{
+  const a=APPS[phApp];let c='';
+  if(phApp==='ref')c=`<div class="card"><h3>Reforços policiais</h3>Dois policiais te acompanham e enfraquecem os criminosos por ${REF_DUR}s.<div class="big">R$ ${REF_COST}</div></div>${bt('ph_ref',cd?'⏳ Disponível em '+cd+'s':'Chamar reforços',!cd&&money>=REF_COST)}`;
+  else if(phApp==='tow')c=`<div class="card"><h3>Guincho</h3>${broken?(tow?'Reboque a caminho • '+Math.ceil(towLeft())+'s':'Leva a viatura para a Oficina.'):'Só disponível com a viatura quebrada.'}<div class="big">R$ ${TOW_COST}</div></div>${bt('ph_tow',tow?'A caminho…':'Chamar reboque',broken&&!tow&&money>=TOW_COST)}`;
+  else if(phApp==='amb'){c=`<div class="card"><h3>SAMU</h3>Taxa fixa de R$ ${AMB_FEE}. Cobra só o que você tiver; grátis se estiver com R$ 0. No multiplayer, só ela revive um parceiro desmaiado.</div>`;
+   if(faint)c+=`<div class="card"><h3>Você</h3>Está desmaiado.</div>`+bt('ph_amb',ambs[myKey]?'A caminho…':'Chamar para mim',!ambs[myKey],myKey);
+   fl.forEach(k=>{c+=`<div class="card"><h3>${remotes[k].nk}</h3>Parceiro desmaiado (a taxa é dele).</div>`+bt('ph_amb','Socorrer '+remotes[k].nk,true,k)});
+   if(!faint&&!fl.length)c+=bt('ph_amb','Ninguém precisa de socorro',false)}
+  else c=`<div class="card"><h3>Saldo</h3><div class="big">R$ ${money}</div>Conta da delegacia. Missões bem-sucedidas pagam recompensa.</div>`;
+  body=`<div class="ah"><button data-a="ph_home" style="width:auto;margin:0;padding:0 6px;background:none;box-shadow:none;font-size:18px">←</button>${a[1]}</div><div class="appb">${c}</div>`}
+ $('mbox').innerHTML=`<div class="ph"><div class="scr"><span class="cam"></span><div class="sb"><span>${hh}</span><span class="ri"><span style="font-size:9px">${wifi}</span><span class="bt"></span></span></div>${body}<div class="nav"><button data-a="${phApp?'ph_home':'x'}">◁</button><button data-a="ph_home">○</button><button data-a="x">▢</button></div></div></div>`;
+ $('menu').style.display='flex';const bd=$('mbox').querySelector('.body,.appb');if(bd)bd.scrollTop=st;if(!was)menuT=performance.now()}
 function phAct(a,n){
+ if(a==='ph_open'){phApp=n;return openPhone()}if(a==='ph_home'){phApp=null;return openPhone()}
  if(a==='ph_ref'){const cd=refCdEnd-performance.now();if(cd>0)return msg('Reforços em espera: '+Math.ceil(cd/1000)+'s',1800);
   if(inside)return msg('Saia do prédio para chamar reforços',2000);if(money<REF_COST)return msg('Sem dinheiro para reforços (R$ '+REF_COST+')',2200);
   money-=REF_COST;refCdEnd=performance.now()+REF_CD*1000;refCall(myKey);send({t:'svc',k:'ref'});hud();saveGame(true);msg('🚓 Reforços a caminho!',2500);$('menu').style.display='none';return}
@@ -2496,12 +2684,12 @@ function phAct(a,n){
  if(a==='ph_amb'){const k=String(n||'');if(k===myKey){if(!faint)return msg('Você não está desmaiado',1800)}else{const r=remotes[k];if(!r||!r.fnt)return msg('Esse jogador não está desmaiado',1800)}
   ambCall(k,true);openPhone()}}
 function updSvc(dt){lodStep(dt);updAmbs(dt);updRefs(dt);fntUI();if(bigMap.on)bigMapDraw();
- if(curMenu==='phone'&&$('menu').style.display==='flex'&&(fc&15)===0){const sig=[Math.ceil((refCdEnd-performance.now())/1000),!!tow,carHp<=0,money,!!faint,!!ambs[myKey],Object.keys(remotes).filter(k=>remotes[k].fnt&&!ambs[k]).join()].join('|');if(sig!==phSig){phSig=sig;openPhone()}}
+ if(curMenu==='phone'&&$('menu').style.display==='flex'&&(fc&15)===0){const sig=[Math.ceil((refCdEnd-performance.now())/1000),!!tow,carHp<=0,money,!!faint,!!ambs[myKey],new Date().getMinutes(),phApp,Object.keys(remotes).filter(k=>remotes[k].fnt&&!ambs[k]).join()].join('|');if(sig!==phSig){phSig=sig;openPhone()}}
  if(faint&&!faint.called&&!roomCode&&time-faint.t0>AMB_AUTO)ambCall(myKey,true)}
 
 // --- Botões: celular e zoom; painel minimizável ---
 {const mk=(id,t,r,f)=>{const b=document.createElement('button');b.id=id;b.className='hb';b.textContent=t;b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();f()});($('tools')||document.body).appendChild(b)};
- mk('phn','📱',0,openPhone)}
+ mk('phn','📱',0,()=>{phApp=null;openPhone()})}
 {const L=$('left'),b=$('minb');let m=!!ls('pc_min');const ap=()=>{L.classList.toggle('min',m);b.textContent=m?'▸ Missão':'▾ Minimizar'};ap();
  b.addEventListener('click',e=>{e.stopPropagation();m=!m;ls('pc_min',m);ap()})}
 
@@ -2554,7 +2742,10 @@ const INT={hq:{c:HQI,W:30,D:24,e:9,m:'Central de Polícia'},kid:{c:KI,W:44,D:40,
 const isRaid=()=>inside==='kid'||inside==='bank'||inside==='drug';
 function enterInt(t){if(driving)return;inside=t;if(t==='drug')lairT=time;if(t==='bank')bankT=time;const I=INT[t],c=I.c;player.position.set(c.x,0,c.z+I.e);
  ZB={x0:c.x-I.W/2+1,x1:c.x+I.W/2-1,z0:c.z-I.D/2+1,z1:c.z+I.D/2-1};yawT=camYaw=Math.PI;camPos.set(player.position.x,6,player.position.z+9);msg(I.m,2500)}
-function endKid(){if(isRaid()&&extBack)toWorld(extBack.x,extBack.z);kidL.forEach(o=>scene.remove(o));kidL=[];for(let i=colliders.length-1;i>=0;i--)if(colliders[i].k)colliders.splice(i,1)}
+// corpos dentro de prédios (mortos/presos) ficam no chão até a missão acabar; só então somem junto com o cenário
+function purgeIntBodies(){for(let i=npcs.length-1;i>=0;i--){const n=npcs[i];if(!(n.dead||n.arrested)||n.custody)continue;const p=n.mesh.position;
+  for(const t of['kid','bank','drug']){const I=INT[t];if(Math.abs(p.x-I.c.x)<I.W/2+2&&Math.abs(p.z-I.c.z)<I.D/2+2){if(n.ragRg){ragDrop(n.ragRg)}if(n.lk)stripLook(n);scene.remove(n.mesh);if(n.bar)scene.remove(n.bar);npcs.splice(i,1);break}}}}
+function endKid(){purgeIntBodies();if(isRaid()&&extBack)toWorld(extBack.x,extBack.z);kidL.forEach(o=>scene.remove(o));kidL=[];for(let i=colliders.length-1;i>=0;i--)if(colliders[i].k)colliders.splice(i,1)}
 const allDown=()=>!Object.values(remotes).some(r=>!r.fnt&&!r.stale);
 // Reset: remove do mapa todos os bandidos, reféns e o carro de fuga
 function wipeCriminals(){for(let i=npcs.length-1;i>=0;i--){const n=npcs[i];
@@ -2566,7 +2757,7 @@ const crimTr=()=>({cor:CRT.length?pick(CRT):pick(CK),bone:Math.random()<.6,mochi
 const crimOpt=(i,armed,ex)=>Object.assign({robber:true,lock:true,hold:true,armed,fireT:1+i*.45,traits:crimTr(),hatC:0x111111},ex||{});
 const putAt=(C,q,o)=>spawnNPC([C.x+q[0],C.z+q[1]],o);
 // --- Banco: interior tático com balcão, pilares, escritórios e cofre ---
-function buildBankInt(L){const C=BI;room(L,C,44,36,mat(0x6b5f4a),true);ring(L,C.x,C.z+15,0x3cd070);
+function buildBankInt(L){const C=BI;room(L,C,44,36,mat(0x6b5f4a),true);decorInt(L,C,44,36,'bank');ring(L,C.x,C.z+15,0x3cd070);
  [[-12,3,12,.8],[12,3,12,.8]].forEach(([x,z,w,d])=>wl(L,C.x+x,C.z+z,w,d,true,1.2));
  [[-8,10],[8,10]].forEach(([x,z])=>wl(L,C.x+x,C.z+z,1.6,1.6,true,4));
  [[-18,-7,8,.6],[-.5,-7,17,.6],[17.5,-7,9,.6]].forEach(([x,z,w,d])=>wl(L,C.x+x,C.z+z,w,d,true));
@@ -2604,7 +2795,7 @@ function untie(n){if(!n.tied)return;n.tied=false;const P=n.parts;if(n.gag){P.hd.
 function startLair(s){
  mtype='lair';crime='tráfico de drogas';phase='raid';timeLeft=0;let b;
  for(let k=0;k<80;k++){b=pick(BLD);if(Math.hypot(b.x,b.z)>60&&Math.abs(b.x)<230&&Math.abs(b.z)<230)break}
- kb=b;extBack={x:b.x,z:b.z+b.d/2+3};const C=DI,L=kidL;room(L,C,46,38,mat(0x3d4a3a),true);ring(L,C.x,C.z+16,0x3cd070);ring(L,b.x,b.z+b.d/2-1.2,0x3cd070);
+ kb=b;extBack={x:b.x,z:b.z+b.d/2+3};const C=DI,L=kidL;room(L,C,46,38,mat(0x3d4a3a),true);decorInt(L,C,46,38,'drug');ring(L,C.x,C.z+16,0x3cd070);ring(L,b.x,b.z+b.d/2-1.2,0x3cd070);
  [[-12,5,8,2],[0,5,8,2],[12,5,8,2],[-12,-5,8,2],[12,-5,8,2]].forEach(([x,z,w,d])=>wl(L,C.x+x,C.z+z,w,d,true,1.1));
  [[-19,10],[19,10],[-6,-1],[6,-1],[-19,-3],[19,-3]].forEach(([x,z])=>wl(L,C.x+x,C.z+z,1.5,1.5,true,1.3));
  [[-14.5,-12,15,.6],[14.5,-12,15,.6]].forEach(([x,z,w,d])=>wl(L,C.x+x,C.z+z,w,d,true));wl(L,C.x,C.z-16,.6,6,true);
