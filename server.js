@@ -9,7 +9,7 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'users.json');
 const MAX_USERS = +process.env.MAX_USERS || 5000;
 const NICK = /^[A-Za-z0-9_]{3,12}$/, MAXMSG = 8192, MAXROOM = 4, SESSION_MS = 30 * 864e5;
-const LOOK_MAX = { skin: 8, hair: 7, hc: 8, glasses: 4, must: 3, beard: 4, fc: 8, sex: 2 };
+const LOOK_MAX = { skin: 8, hair: 19, hc: 8, glasses: 4, must: 3, beard: 4, fc: 8, sex: 2, nose: 6, eye: 6, eyeS: 6, mouth: 6, brow: 4, face: 5, hat: 2 };
 function cleanLook(l) {
   const o = {}; l = l && typeof l === 'object' ? l : {};
   for (const k in LOOK_MAX) { const v = Math.floor(+l[k]); o[k] = v >= 0 && v < LOOK_MAX[k] ? v : (k === 'skin' ? 2 : 0); }
@@ -369,6 +369,15 @@ function handle(c, m) {
       const tr = m.tr && typeof m.tr === 'object' ? m.tr : {};
       const out = { t: 'arr', by: u.nick, o: ['r', 'k', 's'].includes(m.o) ? m.o : 's', tr: { cor: String(tr.cor || '').slice(0, 12), bone: !!tr.bone, mochila: !!tr.mochila, altura: String(tr.altura || '').slice(0, 8) },
         pa: int(m.pa, 0, 0xffffff), sk: int(m.sk, 0, 0xffffff), hc: int(m.hc, 0, 0xffffff), lk: Array.isArray(m.lk) ? m.lk.slice(0, 8).map(v => int(v, 0, 9)) : null, x: +num(m.x, -2000, 2000).toFixed(1), z: +num(m.z, -2000, 2000).toFixed(1) };
+      for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
+      break;
+    }
+    case 'hit': { // acerto em NPC: sangue + dano/rendição/morte valem para todos na sala
+      const r = rooms.get(c.room); if (!r) return;
+      const t = now(); if (t - (c.lh || 0) < 25) return; c.lh = t;
+      const out = { t: 'hit', k: ['b', 'c', 'h'].includes(m.k) ? m.k : 'c', fl: ['r', 'k', 's'].includes(m.fl) ? m.fl : '', p: ['h', 'a', 'l', 'b'].includes(m.p) ? m.p : 'b',
+        x: +num(m.x, -2000, 2000).toFixed(1), z: +num(m.z, -2000, 2000).toFixed(1), ex: +num(m.ex, -2000, 2000).toFixed(2), ey: +num(m.ey, 0, 4).toFixed(2), ez: +num(m.ez, -2000, 2000).toFixed(2),
+        dx: +num(m.dx, -1.5, 1.5).toFixed(2), dz: +num(m.dz, -1.5, 1.5).toFixed(2), bk: +num(m.bk, 0, 2).toFixed(2), o: int(m.o, 0, 3), hp: int(m.hp, 0, 100), m: m.m ? 1 : 0 };
       for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(out); }
       break;
     }
