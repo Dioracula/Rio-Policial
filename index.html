@@ -416,7 +416,7 @@ const VESTS=[
  {n:'Colete médio',prot:.4,dur:100,price:1200,c:0x2f3d2f},
  {n:'Colete pesado',prot:.6,dur:150,price:2800,c:0x1f1f24},
  {n:'Colete tático',prot:.8,dur:220,price:6000,c:0x3a2e1f}];
-let per=0,crm=0,xp=0,money=500,own=[0],ammo={},eq=0,vests={},vestOn=-1,carHp=100,lvl=1,swingT=0,shootHeld=false,lastBump=0,curMenu='',noAuto=false,victimN=null,victimTalked=false,victimTxt='',roubZ=null,shopTab='w';
+let per=0,crm=0,xp=0,money=500,own=[0],ammo={},eq=0,vests={},vestOn=-1,carHp=100,lvl=1,swingT=0,swD=.3,swK=0,cbT=0,cbN=0,shootHeld=false,lastBump=0,curMenu='',noAuto=false,victimN=null,victimTalked=false,victimTxt='',roubZ=null,shopTab='w';
 const cfg=Object.assign({joy:1,cam:1,aim:1},ls('pc_cfg')||{});
 for(const k of['joy','cam','aim'])cfg[k]=Math.max(.3,Math.min(2.5,+cfg[k]||1));
 
@@ -510,10 +510,24 @@ function gripTwo(av,aiming,rk){const P=av.parts,id=av.wid|0,K=id<=2?GRIP.short:G
  const sx=Math.sign(R.position.x||1);_T.copy(_G).addScaledVector(_F,.04);armIK(R,_T,_Pr.set(sx*.6,-1,-.3),.4,.46);
  if(av.wm&&R.elbow){R.updateMatrix();R.elbow.updateMatrix();_Mc.multiplyMatrices(R.matrix,R.elbow.matrix).invert();_Mq.multiplyMatrices(_Mc,_Mw);_Mq.decompose(av.wm.position,av.wm.quaternion,av.wm.scale)} // arma presa no espaço do personagem
  av._gp=true}
+
+// ---- Cassetete: combo de 3 golpes (diagonal → revés → golpe de cima), com preparação, golpe rápido e recuperação suave ----
+const _sm=x=>x*x*(3-2*x),_lp=(a,b,t)=>a+(b-a)*t;
+function swingArm(av,sw){const P=av.parts,a=P.armR,E=a.elbow,k=swK,u=Math.min(1,Math.max(0,1-sw/swD)),L=P.armL;
+ // fases: 0–.28 prepara (braço recua), .28–.58 golpe rápido, .58–1 segue o movimento e volta ao repouso
+ let pw=u<.28?_sm(u/.28):1,st=u<.28?0:u<.58?_sm((u-.28)/.3):1,rc=u<.58?0:_sm((u-.58)/.42);
+ const A=[[-2.7,-.55,-.4,.35,.3,-.8],[-1.45,.95,-1.2,-.95,-.5,-1.1],[-3.05,0,.45,0,-.9,-.3]][k]; // [x preparo, z preparo, x golpe, z golpe, cotovelo preparo, cotovelo golpe]
+ const rest=a.rotation.x,rz=0;
+ let x=_lp(_lp(rest,A[0],pw),A[2],st),z=_lp(_lp(0,A[1],pw),A[3],st),e=_lp(_lp(0,A[4],pw),A[5],st);
+ x=_lp(x,rest,rc);z=_lp(z,0,rc);e=_lp(e,0,rc);
+ a.rotation.x=x;a.rotation.z=z;if(E)E.rotation.x=e;
+ L.rotation.x=_lp(L.rotation.x,-.9,.6*Math.sin(Math.PI*u)); // braço livre acompanha o equilíbrio
+ L.rotation.z=.35*Math.sin(Math.PI*u)*(k===1?-1:1)}
+function resetSwingZ(av){av.parts.armR.rotation.z=0;av.parts.armL.rotation.z=0}
 function poseArm(av,aiming,sw){const P=av.parts,a=P.armR,E=a.elbow,id=av.wid|0,rk=aiming?0:(P.run||0),sS=a.rotation.x,sE=E?E.rotation.x:0; // sS/sE = ciclo de passada calculado por walk()
  if(id>0&&E&&P.armL.elbow&&av.wm&&!av.rag&&!(av===pl&&rollEnd>time)){gripTwo(av,aiming,rk);return} // armas de fogo: duas mãos (correndo e mirando)
  if(av._gp)resetGrip(av);
- if(id===0){if(sw>0){a.rotation.x=-2.4+(1-sw/.3)*3.0;if(E)E.rotation.x=0}else if(aiming){a.rotation.x=-.9;if(E)E.rotation.x=0}return} // cassetete: braço livre acompanha a passada
+ if(id===0){if(sw>0){swingArm(av,sw)}else if(aiming){a.rotation.x=-.9;if(E)E.rotation.x=0}return} // cassetete: braço livre acompanha a passada
  if(aiming){a.rotation.x=-1.5;if(E)E.rotation.x=0;return}
  if(id>=3){ // duas mãos: ao correr, braço direito segura a arma em pé junto ao ombro (sprint da Division); o esquerdo balança livre
   a.rotation.x=-1.0*(1-rk)-.3*rk+.05*rk*Math.sin(2*(P.ph0||0));if(E)E.rotation.x=-2.6*rk}
@@ -588,7 +602,7 @@ function arrRemote(m){const flag=m.o==='r'?'robber':m.o==='k'?'kid':'isSuspect',
  const tr=m.tr||{},ci=v=>Math.max(0,Math.min(16777215,+v||0));
  n.traits={cor:COLORS[tr.cor]!==undefined?tr.cor:'preta',bone:!!tr.bone,mochila:!!tr.mochila,altura:HS[tr.altura]?tr.altura:'médio'};n.pants=ci(m.pa);n.skin=ci(m.sk);n.hatC=ci(m.hc);
  if(Array.isArray(m.lk))n.look=cleanLook({sex:m.lk[0],skin:m.lk[1],hair:m.lk[2],hc:m.lk[3],glasses:m.lk[4],must:m.lk[5],beard:m.lk[6],fc:m.lk[7]});
- model(n);n.mesh.position.set(x,0,z);if(n.grab)release(n,true);n.t0=performance.now();n.arrested=true;n.parts.sm.color.set(0x777777);n.custody=true;n.remoteBy=String(m.by||'').toLowerCase();n.hold=true;n.down=0}
+ model(n);n.mesh.position.set(x,0,z);if(n.grab)release(n,true);n.t0=performance.now();n.arrested=true;n.parts.sm.color.set(0x777777);cuffUp(n);cuffPose(n);n.custody=true;n.remoteBy=String(m.by||'').toLowerCase();n.hold=true;n.down=0}
 function carDamage(d){if(d<=0)return;const was=carHp;carHp=Math.max(0,carHp-d);
  if(carHp<=0&&was>0)msg('Viatura DESTRUÍDA! Travou no lugar. Chame o reboque (R$ '+TOW_COST+')',4000);
  else if(carHp<15&&was>=15)msg('Viatura em estado crítico! Quase parando',2500);
@@ -1049,7 +1063,7 @@ function clearClues(){clues.forEach(c=>{scene.remove(c.m);if(c.ex)scene.remove(c
 function endMission(win,text,pts=0){if(mDone)return;mDone=true;if(!win)wipeCriminals();else{crm++;if(mtype==='invest'&&crime==='homicídio')per++}pts*=mStars;addPts(pts);if(pts)text+=` ×${mStars}★ = +${pts}`;if(suspect){suspect.isSuspect=false;suspect.armed=false;suspect=null}if(roomCode)send({t:'end',text,pts,w:win?1:0});msg(text,3000);endKid();clearClues();notes=[];if(bankBeam){scene.remove(bankBeam);bankBeam=null}genOffers();hud();saveGame()}
 function neutralize(n,kind,dl){
  n.t0=performance.now();if(n.tied)untie(n);if(n.grab)release(n,true);
- if(kind==='arrest'){surrStand(n);n.arrested=true;n.parts.sm.color.set(0x777777)}else{n.dead=true;ragKillNPC(n)}
+ if(kind==='arrest'){surrStand(n);if(n.hr)hrEnd(n);n.arrested=true;n.parts.sm.color.set(0x777777);cuffUp(n);cuffPose(n)}else{n.dead=true;ragKillNPC(n)}
  if(kind==='arrest'&&!dl&&!n.lock&&(n.isSuspect||n.robber||n.kid)){n.custody=true;n.remoteBy=null;send({t:'arr',o:n.robber?'r':n.kid?'k':'s',tr:n.traits,pa:n.pants,sk:n.skin,hc:n.hatC,lk:n.look?[n.look.sex,n.look.skin,n.look.hair,n.look.hc,n.look.glasses,n.look.must,n.look.beard,n.look.fc]:null,x:+n.mesh.position.x.toFixed(1),z:+n.mesh.position.z.toFixed(1)});msg('Preso! Leve-o até a delegacia (siga o GPS)',3000);hud();return}
  if(n.bh){score-=15;msg('Um refém morreu! -15 pontos',2200);hud()}else if(n.hostage)endMission(false,'O refém morreu! Missão fracassada');else if(n.isSuspect)endMission(true,kind==='arrest'?'Suspeito preso! +15 pontos':'Suspeito neutralizado. +8 pontos',kind==='arrest'?15:8);
  else if(n.robber){addPts(kind==='arrest'?5:3);msg(kind==='arrest'?'Criminoso preso! +5':'Criminoso abatido! +3',1500);
@@ -1223,7 +1237,43 @@ function surrStep(n,p,P,dp,dt){
  walk(n.parts,n.ph,false,dt,0);n.mesh.position.y=n.parts.drop||0;n.mesh.rotation.x=0;
  const A=n.parts,w=Math.sin(time*9+n.ph)*.05;A.armL.rotation.x=-2.8+w;A.armR.rotation.x=-2.8-w;
  if(A.armL.elbow){A.armL.elbow.rotation.x=-.3;A.armR.elbow.rotation.x=-.3}}
+
+// ---- Reação de dano (flinch/stagger): em vez de afundar, o corpo cambaleia para trás, encolhe o ombro atingido e se recupera ----
+function hitReact(n,pw){n.hr=null;n.hrPw=pw||1}
+function hrStart(n,p,P){const dx=p.x-P.x,dz=p.z-P.z,l=Math.hypot(dx,dz)||1,pw=n.hrPw||1;n.hrPw=1;
+ n.hr={t:0,dx:dx/l,dz:dz/l,side:Math.random()<.5?-1:1,pw,tot:Math.max(.5,n.down),yaw:n.mesh.rotation.y}}
+function hrEnd(n){const P=n.parts;n.mesh.rotation.x=0;n.mesh.rotation.z=0;n.mesh.position.y=0;if(P.tor)P.tor.rotation.z=0;if(P.hd){P.hd.rotation.x=0;P.hd.rotation.z=0}
+ for(const L of[P.armL,P.armR]){L.rotation.set(0,0,0);if(L.elbow)L.elbow.rotation.x=0}n.hr=null}
+function hrStep(n,p,P,dp,dt,far){const h=n.hr,pa=n.parts;h.t+=dt;const t=h.t,SR=.5+.12*h.pw; // SR: duração do cambaleio
+ const k=t<SR?Math.sin(Math.PI*Math.min(1,t/SR)*.5):1; // 0→1 rápido
+ const sp=t<SR?(3.2*h.pw)*Math.pow(1-t/SR,2):0; // passo para trás, desacelera
+ if(sp>0){const nx=p.x+h.dx*sp*dt,nz=p.z+h.dz*sp*dt;if(!collides(nx,p.z,.45))p.x=nx;if(!collides(p.x,nz,.45))p.z=nz}
+ if(far)return;
+ const rem=Math.max(0,n.down),rec=Math.min(1,rem/.35); // rec: volta ao normal nos últimos .35s
+ const w=t<SR?Math.sin(Math.PI*t/SR):0,sd=h.side,hunch=t<SR?k:.55+.45*rec;
+ const wob=t>=SR?.05*Math.sin(t*9)*rec:0; // perde o equilíbrio por um instante
+ n.mesh.rotation.x=-.34*w*h.pw-.1*(1-w)*hunch*rec*0+(t>=SR?-.12*rec:0)+wob;
+ n.mesh.rotation.z=sd*(.16*w*h.pw)+wob;
+ n.mesh.position.y=0;
+ if(pa.tor)pa.tor.rotation.z=sd*.14*hunch;
+ if(pa.hd){pa.hd.rotation.x=-.2*w+.25*(1-w)*hunch*rec;pa.hd.rotation.z=-sd*.12*hunch}
+ // braço atingido protege o ombro/peito; o outro abre para recuperar o equilíbrio
+ const H=sd>0?pa.armR:pa.armL,O=sd>0?pa.armL:pa.armR;
+ H.rotation.set(-.9*hunch,0,-sd*.55*hunch);if(H.elbow)H.elbow.rotation.x=-1.5*hunch;
+ O.rotation.set(-.4*w,0,sd*(.2+.9*w)*(t<SR?1:rec));if(O.elbow)O.elbow.rotation.x=-.3*w;
+ // perna de trás dá o passo em falso, a da frente dobra
+ const stp=t<SR?Math.sin(Math.PI*t/SR):0;
+ pa.legL.rotation.x=.55*stp*sd+(t>=SR?.04*Math.sin(t*9)*rec:0);pa.legR.rotation.x=-.55*stp*sd;
+ if(pa.legL.knee)pa.legL.knee.rotation.x=.5*stp*(sd>0?1:0)+.25*hunch*rec;if(pa.legR.knee)pa.legR.knee.rotation.x=.5*stp*(sd>0?0:1)+.25*hunch*rec}
+
+// ---- Preso: mãos algemadas atrás das costas, cabeça baixa ----
+function cuffUp(n){if(n.cuff)return;const m=new THREE.Mesh(new THREE.BoxGeometry(.24,.09,.1),new THREE.MeshLambertMaterial({color:0x2a2c30}));m.position.set(0,.98,-.25);n.mesh.add(m);n.cuff=m;
+ const r=new THREE.Mesh(new THREE.TorusGeometry(.05,.016,6,10),new THREE.MeshLambertMaterial({color:0xb8bcc4}));r.position.set(0,0,-.03);m.add(r)}
+function cuffPose(n){const P=n.parts;if(!P)return;
+ P.armL.rotation.set(.62,0,.3);P.armR.rotation.set(.62,0,-.3);if(P.armL.elbow){P.armL.elbow.rotation.x=.25;P.armR.elbow.rotation.x=.25}
+ if(P.hd){P.hd.rotation.x=.22;P.hd.rotation.z=0}if(P.tor)P.tor.rotation.z=0}
 function surrStand(n){ // preso: levanta do chão / abaixa os braços
+ if(n.hr)hrEnd(n);
  if(n.ragRg){ragEnd(n.ragRg.o);n.ragRg=null}
  if(n.surr){n.surr=0;const A=n.parts;for(const L of[A.armL,A.armR]){L.rotation.x=0;if(L.elbow)L.elbow.rotation.x=0}}}
 // ---------- Civis e reféns: mesma vida invisível e mesmos danos dos bandidos; sangue no corpo; tudo sincronizado na sala ----------
@@ -1272,8 +1322,8 @@ function hitRemote(m){
  stainNPC(n,E,null,dx,dz);n.hp=+m.hp;n.revealed=true;
  const o=m.o|0;
  if(o===3){remoteKill(n,{x:x-dx*3,z:z-dz*3});return}
- if(k==='b'){if(o===1||o===2)surrender(n,o===1?'arm':'leg',true);else{if(!n.react)setReact(n);if(m.m)n.down=Math.max(n.down||0,1.1)}}
- else if(k==='c'){if(o===1||o===2)woundCiv(n,o===1?'arm':'leg');else if(m.m)n.down=Math.max(n.down||0,2.5)}}
+ if(k==='b'){if(o===1||o===2)surrender(n,o===1?'arm':'leg',true);else{if(!n.react)setReact(n);if(m.m){n.down=Math.max(n.down||0,1.1);hitReact(n)}}}
+ else if(k==='c'){if(o===1||o===2)woundCiv(n,o===1?'arm':'leg');else if(m.m){n.down=Math.max(n.down||0,2.5);hitReact(n)}}}
 function vfxStep(dt){
  for(const f of VFX.fl){if(!f.m.visible)continue;f.t-=dt;if(f.t<=0){f.m.visible=false;continue}const u=1-f.t/f.l;f.m.scale.setScalar(f.s*(.7+.6*u));f.m.material.opacity=1-u*.8}
  for(const p of VFX.pf){if(!p.on)continue;p.t+=dt;const u=p.t/p.l;if(u>=1){p.on=false;p.m.visible=false;continue}
@@ -1324,22 +1374,22 @@ function fire(){
  updWpnBtn()}
 // cassetete: só acerta quem está a menos de 2,4 m
 function melee(){
- if(faint)return;const w=WEAPONS[0],P=player.position;fireCd=time+w.cd;swingT=.3;
+ if(faint)return;const w=WEAPONS[0],P=player.position;fireCd=time+w.cd;if(time>cbT)cbN=0;swK=cbN%3;swD=swK===2?.44:.32;swingT=swD;cbN++;cbT=time+swD+.65;
  let best=null,bs=1e9,bd=1e9;
  for(const n of npcs){if(n.dead||n.arrested||n.boarded||n.cop||n.custody||n.hostageOf||!n.mesh.visible)continue;
   const d=Math.hypot(n.mesh.position.x-P.x,n.mesh.position.z-P.z),sc=d-((n.robber||n.kid||n.isSuspect)?1:0);if(sc<bs){bs=sc;bd=d;best=n}}
  if(!best)return;
  if(bd>w.range){if(bd<7)msg('Muito longe! O cassetete alcança só 2,4 m',1200);return}
  const p=best.mesh.position;player.rotation.y=Math.atan2(p.x-P.x,p.z-P.z);
- meleeHit(best)}
-function meleeHit(n){
+ meleeHit(best,swK===2)}
+function meleeHit(n,fin){
  if(n.hostage){msg('Cuidado com o refém!',1200);return}
  const p=n.mesh.position,Q=player.position,d=Math.hypot(p.x-Q.x,p.z-Q.z)||1,ux=(p.x-Q.x)/d,uz=(p.z-Q.z)/d,E=new THREE.Vector3(p.x-ux*.25,1.35,p.z-uz*.25);
  bloodFx(E,'b',ux,uz,.6);stainNPC(n,E,null,ux,uz);
- if(!(n.robber||n.kid||n.isSuspect)){if(n.hp==null)n.hp=100;n.hp-=34;score-=10;n.down=2.5;msg('Você agrediu um civil! -10 pontos',1600);
+ if(!(n.robber||n.kid||n.isSuspect)){if(n.hp==null)n.hp=100;n.hp-=34;score-=10;n.down=fin?3:2.5;hitReact(n,fin?1.4:1);msg('Você agrediu um civil! -10 pontos',1600);
   hitOut={o:n.hp<=0?3:0,hp:Math.max(0,Math.round(n.hp))};netHit(n,E,'b',ux,uz,.6,1);if(n.hp<=0)neutralize(n,'kill');else hud();return}
  n.revealed=true;if(n.hp==null)n.hp=100;
- n.hp-=34;n.down=Math.max(n.down||0,1.1);n.fireT=Math.max(n.fireT||0,1.5);
+ n.hp-=34;n.down=Math.max(n.down||0,fin?1.7:1.1);hitReact(n,fin?1.4:1);n.fireT=Math.max(n.fireT||0,1.5);
  if(n.grab)release(n,true);
  if(n.armed&&Math.random()<.35){n.armed=false;dropGun(n);msg('Arma derrubada!',1200)}
  hitOut={o:0,hp:Math.max(1,Math.round(n.hp))};netHit(n,E,'b',ux,uz,.6,1);
@@ -1915,7 +1965,7 @@ function physStep(dt){
 // --- Gatilhos: quem morreu ou desmaiou vira boneco de pano ---
 function ragKillNPC(n,from){
  if(n.ragRg){const rg=n.ragRg;n.ragRg=null;rg.sleep=false;rg.t=0;rg.still=0;if(ragAct.indexOf(rg)<0)ragAct.push(rg);bloodPool(rg);return rg}
- const m=n.mesh;if(n.sy0!=null)m.scale.y=n.sy0;if(n.down>0)m.position.y=0;
+ if(n.hr)hrEnd(n);const m=n.mesh;if(n.sy0!=null)m.scale.y=n.sy0;if(n.down>0)m.position.y=0;
  if(n.armed){n.armed=false;dropGun(n)}
  const F=from||pos(),dx=m.position.x-F.x,dz=m.position.z-F.z,dl=Math.hypot(dx,dz)||1,w=WEAPONS[eq]||{},f=from?3:(w.melee?2:3+1.5*(w.dmg||1)),
   sp=n.down>0?0:(n.v||0),ry=m.rotation.y;
@@ -1994,7 +2044,7 @@ function loop(){
   {const hug=cov&&!rolling?(cov.low?.2:.18):0,k=Math.min(1,dt*10);covSh.x+=((cov?-cov.nx*hug:0)-covSh.x)*k;covSh.z+=((cov?-cov.nz*hug:0)-covSh.z)*k} // corpo encosta na parede (só visual)
   const cb=$('covb');if(cb)cb.textContent=cov?'SAIR':crouch?'LEVANTAR':'COBERT.'}
  if(aimOn){let d=camYaw-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*16)}
- pSpd=Math.hypot(pvx,pvz);plMove=pSpd>.3&&!driving&&!(rollEnd>time);walk(pl.parts,ph,plMove,dt,pSpd);if(swingT>0)swingT=Math.max(0,swingT-dt);poseArm(pl,aimOn,swingT);bodyPose();
+ pSpd=Math.hypot(pvx,pvz);plMove=pSpd>.3&&!driving&&!(rollEnd>time);walk(pl.parts,ph,plMove,dt,pSpd);{const was=swingT>0;if(swingT>0)swingT=Math.max(0,swingT-dt);poseArm(pl,aimOn,swingT);if(was&&swingT<=0)resetSwingZ(pl)}bodyPose();
  if(riding){const so=SEAT_OFF[riding]||SEAT_OFF[1],cy=car.g.rotation.y;
   player.position.set(car.g.position.x+so.x*Math.cos(cy)+so.z*Math.sin(cy),0,car.g.position.z-so.x*Math.sin(cy)+so.z*Math.cos(cy))}
  const P=pos();
@@ -2007,10 +2057,10 @@ function loop(){
     else if(gcar.exit&&(Math.abs(gcar.g.position.x)>B-6||Math.abs(gcar.g.position.z)>B-6))endMission(false,'Os criminosos fugiram da cidade! Missão perdida')}}}
  if(!mDone&&mtype==='kid'&&hostageN&&!hostageN.fleeing){if(!kidPause())timeLeft-=dt;if(timeLeft<=0)neutralize(hostageN,'kill')}
  near=null;let nd=3.4;
- for(const n of npcs){if(n.custody){const p=n.mesh.position,own=!n.remoteBy,rr=own?null:remotes[n.remoteBy];if(!own&&!rr){walk(n.parts,n.ph,false);continue}
+ for(const n of npcs){if(n.custody){const p=n.mesh.position,own=!n.remoteBy,rr=own?null:remotes[n.remoteBy];if(!own&&!rr){walk(n.parts,n.ph,false);cuffPose(n);continue}
   const T=own?P:rr.g.position,inCar=own?driving:rr.drv,dx=T.x-p.x,dz=T.z-p.z,dd=Math.hypot(dx,dz);let mv=false;n.inCar=inCar;
   if(inCar){p.x=T.x;p.z=T.z;n.mesh.visible=false}else{n.mesh.visible=true;if(dd>2.5){const nx=p.x+dx/dd*5.5*dt,nz=p.z+dz/dd*5.5*dt;if(!collides(nx,p.z,.5)){p.x=nx;mv=true}if(!collides(p.x,nz,.5)){p.z=nz;mv=true}n.mesh.rotation.y=Math.atan2(dx,dz)}}
-  n.ph+=dt*(mv?gaitRate(5.5):0);walk(n.parts,n.ph,mv,dt,5.5);n.mesh.position.y=n.parts.drop||0;
+  n.ph+=dt*(mv?gaitRate(5.5):0);walk(n.parts,n.ph,mv,dt,5.5);cuffPose(n);n.mesh.position.y=n.parts.drop||0;
   if(own&&Math.hypot(p.x-HQD.x,p.z-HQD.z)<6&&Math.hypot(P.x-HQD.x,P.z-HQD.z)<8){n.custody=false;n.delivered=true;n.mesh.visible=false;neutralize(n,'arrest',true);send({t:'dlv'})}
   continue}
  if(n.dead||n.arrested||n.boarded)continue;const p=n.mesh.position;
@@ -2022,7 +2072,8 @@ function loop(){
   if(n.armed){if(n.wid==null)giveWeapon(n)}else if(n.wm)holster(n); // arma só aparece na mão enquanto está armado
   if(crim&&!esc){if(!n.react&&!n.hostage)stealthStep(n,p,P,dp,dt,bld); // gatilho de alerta: só visão (cone + linha livre) ou tiro ouvido
    if(n.react&&!bld&&time-lastFireT<.7&&dp<45&&!(n.dodge>time)){n.dodge=time+.7;n.dodgeDir=Math.random()<.5?1:-1}}
-  if(n.down>0){n.down-=dt;n.mesh.position.y=n.down>0?-.6:0;if(dp<nd&&!driving&&!riding&&!n.cop){nd=dp;near=n}continue}
+  if(n.down>0){n.down-=dt;if(!n.hr)hrStart(n,p,P);hrStep(n,p,P,dp,dt,dp>=110||!!n.lodLow||!!n.cull);if(n.down<=0)hrEnd(n);if(dp<nd&&!driving&&!riding&&!n.cop){nd=dp;near=n}continue}
+  else if(n.hr)hrEnd(n);
   const cvSp=(crim&&n.armed&&!esc&&dp<Math.min(45,ew(n).er*1.6+8)&&(n.react==='fight'||n.underFire))?coverAI(n,p,P,dp,dt):-1;if(cvSp<0){if(n.sy0!=null&&n.mesh.scale.y!==n.sy0)n.mesh.scale.y=n.sy0;if(n.cs){n.cs=null;n.cv=null}}
   if(cvSp>=0)sp=cvSp;
   else if(n.fleeing){sp=5.6;n.tgt.set(n.exit.x,0,n.exit.z);n.timer=1;if(Math.hypot(p.x-n.exit.x,p.z-n.exit.z)<2||time>n.fleeEnd){n.boarded=true;n.mesh.visible=false;continue}} // refém solto corre para fora do lugar
