@@ -459,12 +459,13 @@ const armCyc=(q,amp,run)=>[-(((.32*(1-run)+.62*run)*q)*amp+.12*run),-((.18+.08*q
 function walk(p,ph,on,dt,v){ // v = velocidade real (m/s): amplitude do passo, joelhos, braços e inclinação acompanham o ritmo (andar x correr)
  dt=dt||.05;const tgt=on?1:0;p._wa=p._wa==null?tgt:p._wa+(tgt-p._wa)*Math.min(1,dt*11);const amp=p._wa;
  if(on){v=v==null?2.4:v;p._wv=p._wv==null?v:p._wv+(v-p._wv)*Math.min(1,dt*10)}
- const vv=p._wv==null?2.4:p._wv,A=Math.min(.98,Math.asin(Math.min(.97,ST(vv)/4.16)))*amp,rn=Math.max(0,Math.min(1,(vv-3.4)/2)),run=rn*rn*(3-2*rn)*amp; // run: 0 = andando, 1 = correndo
- const a=Math.asin(.96*Math.sin(ph))/1.287*A,c=Math.cos(ph),kb=(.14+.3*run)*amp,kw=(.75+1.0*run)*amp,kL=kb+Math.max(0,-c)*kw,kR=kb+Math.max(0,c)*kw; // joelho dobra na fase de balanço (perna passando para frente)
- p.legL.rotation.x=a;p.legR.rotation.x=-a;if(p.legL.knee)p.legL.knee.rotation.x=kL;if(p.legR.knee)p.legR.knee.rotation.x=kR;
+ const vv=p._wv==null?2.4:p._wv,rn=Math.max(0,Math.min(1,(vv-3.4)/2)),run=rn*rn*(3-2*rn)*amp,A=Math.min(.98,Math.asin(Math.min(.97,ST(vv)/4.16)))*amp*(1-.32*run); // correndo: passada mais curta no chão (o resto é fase de voo) // run: 0 = andando, 1 = correndo
+ const tac=(p.tac?1:0)*run,a=Math.asin(.96*Math.sin(ph))/1.287*A,c=Math.cos(ph),kb=(.14+.3*run+.14*tac)*amp,kw=(.75+1.3*run)*amp,kL=kb+Math.max(0,-c)*kw,kR=kb+Math.max(0,c)*kw; // joelho dobra na fase de balanço (perna passando para frente)
+ const ln=.24*run+.08*tac,aL=a-(.34-.08*tac)*run*Math.max(0,-c)*amp-.7*ln,aR=-a-(.34-.08*tac)*run*Math.max(0,c)*amp-.7*ln; // coxa da perna em balanço sobe (joelho à frente); pernas compensam a inclinação do tronco (não vira uma tábua) // coxa da perna em balanço sobe (joelho à frente)
+ p.legL.rotation.x=aL;p.legR.rotation.x=aR;if(p.legL.knee)p.legL.knee.rotation.x=kL;if(p.legR.knee)p.legR.knee.rotation.x=kR;
  const rc=(an,k)=>.52*Math.cos(an)+.52*Math.cos(an+k);
- p.drop=Math.max(-.45,Math.min(0,Math.max(rc(a,kL),rc(-a,kR))-1.04))*(1-.45*run); // quadril desce até o pé de apoio tocar o chão: peso e quique naturais
- const q=Math.sin(ph),cl=armCyc(q,amp,run),cr=armCyc(-q,amp,run);p.armL.rotation.x=cl[0];p.armR.rotation.x=cr[0];if(p.armL.elbow){p.armL.elbow.rotation.x=cl[1];p.armR.elbow.rotation.x=cr[1]}p.run=run;p.lean=.15*run;p.ph0=ph;p.rollZ=.04*run*Math.sin(ph)*amp;p.bobX=.03*run*Math.cos(2*ph)*amp}
+ p.drop=Math.max(-.45*(1-run)-(.1+.06*tac)*run,Math.min(.1,Math.max(rc(aL+ln,kL),rc(aR+ln,kR))-1.04*Math.cos(ln))); // correndo: o quadril não despenca quando as pernas se abrem (fase de voo); só o pé de apoio toca o chão // quadril desce até o pé de apoio tocar o chão: peso e quique naturais
+ const q=Math.sin(ph),cl=armCyc(q,amp,run),cr=armCyc(-q,amp,run);p.armL.rotation.x=cl[0];p.armR.rotation.x=cr[0];if(p.armL.elbow){p.armL.elbow.rotation.x=cl[1];p.armR.elbow.rotation.x=cr[1]}p.run=run;p.lean=ln;p.ph0=ph;p.rollZ=.04*run*Math.sin(ph)*amp;p.bobX=.03*run*Math.cos(2*ph)*amp}
 const POLICE_SHIRT=0x1f4aa8,POLICE_PANTS=0x15233f; // farda azul da polícia: fixa para o jogador local e para todos os remotos, nunca muda (ex.: ao jogar online)
 const pl=buildPerson({shirt:POLICE_SHIRT,pants:POLICE_PANTS,skin:0xe0b090,hat:true,hatColor:0x10224a,pack:false,scale:1});
 const player=pl.g;player.position.set(0,0,-8);scene.add(player);
@@ -544,8 +545,8 @@ function setHandWeapon(av,id){
 // ---------- Empunhadura tática ----------
 // Só o cassetete (corpo a corpo) é segurado com uma mão. Toda arma de fogo (revólver e pistola inclusive) usa as DUAS mãos
 // andando, correndo ou mirando: a arma fica presa no espaço do personagem e os dois braços chegam até ela por cinemática inversa.
-const GRIP={short:{aim:[[.05,1.64,.52],[0,.02,1]],rdy:[[.08,1.30,.40],[0,-.45,.89]],run:[[.08,1.45,.32],[0,.75,.66]]},   // revólver/pistola
- long:{aim:[[.07,1.60,.24],[0,.02,1]],rdy:[[.10,1.38,.26],[0,-.25,.97]],run:[[.10,1.40,.28],[0,.70,.71]]}};                  // SMG/escopeta/fuzil: [posição da mão da arma, direção do cano]
+const GRIP={short:{aim:[[.05,1.64,.52],[0,.02,1]],rdy:[[.08,1.30,.40],[0,-.45,.89]],run:[[.07,1.36,.40],[0,-.2,.98]]},   // revólver/pistola
+ long:{aim:[[.07,1.60,.24],[0,.02,1]],rdy:[[.10,1.38,.26],[0,-.25,.97]],run:[[.09,1.40,.27],[0,-.14,.99]]}};                  // SMG/escopeta/fuzil: [posição da mão da arma, direção do cano]
 const SUP=[null,[-.05,-.09,-.04],[-.05,-.09,-.05],[0,-.30,-.05],[0,-.30,-.06],[0,-.48,-.06]]; // ponto da arma (coords da arma, y<0 = frente) onde a mão de apoio segura
 const _D=new THREE.Vector3(),_Pr=new THREE.Vector3(),_Y=new THREE.Vector3(),_E=new THREE.Vector3(),_Fo=new THREE.Vector3(),_Z=new THREE.Vector3(),_X=new THREE.Vector3(),_W=new THREE.Vector3(),_G=new THREE.Vector3(),_F=new THREE.Vector3(),_T=new THREE.Vector3(),_U=new THREE.Vector3(),_NF=new THREE.Vector3();
 const _Mw=new THREE.Matrix4(),_Mc=new THREE.Matrix4(),_Mq=new THREE.Matrix4();
@@ -600,7 +601,8 @@ function resetSwingZ(av){av.parts.armR.rotation.z=0;av.parts.armL.rotation.z=0}
 function poseArm(av,aiming,sw){const P=av.parts,a=P.armR,E=a.elbow,id=av.wid|0,rk=aiming?0:(P.run||0),sS=a.rotation.x,sE=E?E.rotation.x:0; // sS/sE = ciclo de passada calculado por walk()
  if(id>0&&E&&P.armL.elbow&&av.wm&&!av.rag&&!(av===pl&&rollEnd>time)){gripTwo(av,aiming,rk);return} // armas de fogo: duas mãos (correndo e mirando)
  if(av._gp)resetGrip(av);
- if(id===0){if(sw>0){swingArm(av,sw)}else if(aiming){a.rotation.x=-.9;if(E)E.rotation.x=0}else if(rk>0){const ph=P.ph0||0;a.rotation.x=sS*.85;a.rotation.z=-.07*rk-.05*rk*Math.sin(ph);if(E)E.rotation.x=sE*.9-.35*rk;P.armL.rotation.z=.07*rk+.04*rk*Math.sin(ph)}else{a.rotation.z=0}return} // cassetete: braço livre acompanha a passada
+ if(id===0&&av.wm){const tb=(sw>0||aiming)?0:-2.0*rk;av._bt=(av._bt||0)+(tb-(av._bt||0))*(sw>0?1:.18);av.wm.rotation.x=av._bt}
+ if(id===0){if(sw>0){swingArm(av,sw)}else if(aiming){a.rotation.x=-.9;if(E)E.rotation.x=0}else if(rk>0){const ph=P.ph0||0;a.rotation.x=sS*.9;a.rotation.z=-.08*rk-.05*rk*Math.sin(ph);if(E)E.rotation.x=sE-.2*rk;P.armL.rotation.z=.07*rk+.04*rk*Math.sin(ph)}else{a.rotation.z=0}return} // cassetete: braço livre acompanha a passada
  if(aiming){a.rotation.x=-1.5;if(E)E.rotation.x=0;return}
  if(id>=3){ // duas mãos: ao correr, braço direito segura a arma em pé junto ao ombro (sprint da Division); o esquerdo balança livre
   a.rotation.x=-1.0*(1-rk)-.3*rk+.05*rk*Math.sin(2*(P.ph0||0));if(E)E.rotation.x=-2.6*rk}
@@ -1313,7 +1315,7 @@ function surrStep(n,p,P,dp,dt){
  if(A.armL.elbow){A.armL.elbow.rotation.x=-.3;A.armR.elbow.rotation.x=-.3}}
 
 // ---- Reação de dano (flinch/stagger): em vez de afundar, o corpo cambaleia para trás, encolhe o ombro atingido e se recupera ----
-function headPose(n,dx,dz){const sy=.884,hy=1.86*(1-HD)+.06;for(const h of[n.parts.hd,n.lk&&n.lk.lg])if(h){h.rotation.x=dx;h.rotation.z=dz;h.position.set(sy*Math.sin(dz),hy+sy*(1-Math.cos(dx)*Math.cos(dz)),-sy*Math.sin(dx))}}
+function headPose(n,dx,dz){const sy=.884,hy=1.86*(1-HD)+.06;for(const h of[n.parts.hd,n.lg||(n.lk&&n.lk.lg)])if(h){h.rotation.x=dx;h.rotation.z=dz;h.position.set(sy*Math.sin(dz),hy+sy*(1-Math.cos(dx)*Math.cos(dz)),-sy*Math.sin(dx))}}
 function hitReact(n,pw){n.hr=null;n.hrPw=pw||1}
 function hrStart(n,p,P){const dx=p.x-P.x,dz=p.z-P.z,l=Math.hypot(dx,dz)||1,pw=n.hrPw||1;n.hrPw=1;
  n.hr={t:0,dx:dx/l,dz:dz/l,side:Math.random()<.5?-1:1,pw,tot:Math.max(.5,n.down),yaw:n.mesh.rotation.y}}
@@ -1951,7 +1953,7 @@ function crouchPose(P){
  return{H,lean:CR.LEAN+.03*w*Math.sin(2*ph+.6),th,kn,pw,w}}
 function bodyPose(){if(pl.rag){vOff.y=0;vOff.z=0;return}const P=pl.parts,rolling=rollEnd>time,cp=!rolling&&crC>.001?crouchPose(P):null;let rx=rolling?0:(P.lean||0)+(P.bobX||0),sc=1,oy=rolling?0:(P.drop||0),oz=0,tk=0,u=0;
  if(cp){const hb=(1.04+(P.drop||0))*(1-crC)+cp.H*crC;rx=(P.lean||0)*(1-crC)+cp.lean*crC;oy=hb-1.04*Math.cos(rx);oz=-1.04*Math.sin(rx)-CR.D*crC} // gira em torno do quadril: ele fica baixo e atrás dos pés
- const dh=cp?-.65*rx:0; // cabeça fica mais erguida que o tronco
+ const dh=cp?-.65*rx:(rolling?0:-.7*rx); // cabeça fica mais erguida que o tronco
  pl._rx=rolling?0:rx; // usado pela empunhadura para manter o cano apontado certo
  if(rolling){ // rolamento estilo Dark Souls: tronco dobra no quadril, cambalhota para a frente, pouso encolhido e levanta em agachamento. Sem encolher o corpo.
   u=1-(rollEnd-time)/ROLL_T;tk=Math.max(0,Math.min(1,u/.08,(1-u)/.08));tk=tk*tk*(3-2*tk);
@@ -2209,7 +2211,7 @@ function loop(){
   {const hug=cov&&!rolling?(cov.low?.2:.18):0,k=Math.min(1,dt*10);covSh.x+=((cov?-cov.nx*hug:0)-covSh.x)*k;covSh.z+=((cov?-cov.nz*hug:0)-covSh.z)*k} // corpo encosta na parede (só visual)
   const cb=$('covb');if(cb)cb.textContent=cov?'SAIR':crouch?'LEVANTAR':'COBERT.'}
  if(aimOn){let d=camYaw-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*16)}
- pSpd=Math.hypot(pvx,pvz);plMove=pSpd>.3&&!driving&&!(rollEnd>time);walk(pl.parts,ph,plMove,dt,pSpd);{const was=swingT>0;if(swingT>0)swingT=Math.max(0,swingT-dt);poseArm(pl,aimOn,swingT);if(was&&swingT<=0)resetSwingZ(pl)}bodyPose();
+ pSpd=Math.hypot(pvx,pvz);plMove=pSpd>.3&&!driving&&!(rollEnd>time);pl.parts.tac=(pl.wid|0)>0?1:0;walk(pl.parts,ph,plMove,dt,pSpd);{const was=swingT>0;if(swingT>0)swingT=Math.max(0,swingT-dt);poseArm(pl,aimOn,swingT);if(was&&swingT<=0)resetSwingZ(pl)}bodyPose();
  if(riding){const so=SEAT_OFF[riding]||SEAT_OFF[1],cy=car.g.rotation.y;
   player.position.set(car.g.position.x+so.x*Math.cos(cy)+so.z*Math.sin(cy),0,car.g.position.z-so.x*Math.sin(cy)+so.z*Math.cos(cy))}
  const P=pos();
@@ -2276,7 +2278,7 @@ function loop(){
     if(n.sk>=2&&(n.rt||0)<=time){n.timer=0;const w=npcRoute(n,p,n.rx==null?n.tgt.x:n.rx,n.rz==null?n.tgt.z:n.rz);if(w&&w.length){n.sk=0;n.dtX=w[0][0];n.dtZ=w[0][1];n.dtT=time+8}else if(w===null){n.sk=0;n.rt=time+2.5;n.v=0}}}
    else n.sk=0;
    n.pd=dd}
-  if(dp<110&&!n.lodLow&&!n.cull){if(n.tied)tiedPose(n);else{n.ph+=dt*gaitRate(n.v);walk(n.parts,n.ph,n.v>.25,dt,n.v);n.mesh.position.y=n.parts.drop||0;n.mesh.rotation.x=(n.parts.lean||0)+(n.parts.bobX||0);n.mesh.rotation.z=n.parts.rollZ||0;
+  if(dp<110&&!n.lodLow&&!n.cull){if(n.tied)tiedPose(n);else{n.ph+=dt*gaitRate(n.v);n.parts.tac=(n.wm&&(n.wid|0)>0)?1:0;walk(n.parts,n.ph,n.v>.25,dt,n.v);n.mesh.position.y=n.parts.drop||0;n.mesh.rotation.x=(n.parts.lean||0)+(n.parts.bobX||0);n.mesh.rotation.z=n.parts.rollZ||0;n._rx=n.mesh.rotation.x;headPose(n,-.7*n.mesh.rotation.x,-.6*n.mesh.rotation.z);
    if(n.wm){n._rx=n.mesh.rotation.x;poseArm(n,n.fireAim>time,0)} // segura a arma com as duas mãos (mesma empunhadura do jogador)
    if(n.pan>time){const P2=n.parts,w=Math.sin(time*10+n.ph)*.3;P2.armL.rotation.x=-2.75+w;P2.armR.rotation.x=-2.75-w;if(P2.armL.elbow){P2.armL.elbow.rotation.x=-.25;P2.armR.elbow.rotation.x=-.25}}}}
   if(dp<nd&&!driving&&!riding&&!n.cop&&!n.fleeing){nd=dp;near=n}}
@@ -2439,9 +2441,9 @@ function updRemotes(dt){
   if(r.fnt&&!r.boarded){if(!r.rag)ragFaintRemote(r);ragTag(r);r.g.visible=!(k===rd||seats.includes(k));continue} // desmaiado: o ragdoll cuida da pose
   const f=1-Math.exp(-30*dt),dx=s.x-p.x,dz=s.z-p.z;
   if(Math.hypot(dx,dz)>14){p.x=s.x;p.z=s.z}else{p.x+=dx*f;p.z+=dz*f}
-  const sp=dt>0?Math.hypot(dx,dz)*f/dt:0;const rsp=Math.min(sp,7);r.ph+=dt*gaitRate(Math.max(rsp,.5));if(!r.lodLow&&!r.cull){walk(r.parts,r.ph,sp>.8,dt,rsp);poseArm(r,false,0)}
+  const sp=dt>0?Math.hypot(dx,dz)*f/dt:0;const rsp=Math.min(sp,7);r.ph+=dt*gaitRate(Math.max(rsp,.5));if(!r.lodLow&&!r.cull){r.parts.tac=(r.wid|0)>0?1:0;walk(r.parts,r.ph,sp>.8,dt,rsp);poseArm(r,false,0)}
   r.g.rotation.y+=wrapA(s.r-r.g.rotation.y)*Math.min(1,dt*14);
-  if(r.rag)ragEnd(r);r.g.rotation.x=(r.parts.lean||0)+(r.parts.bobX||0);r.g.rotation.z=r.parts.rollZ||0;p.y=r.parts.drop||0
+  if(r.rag)ragEnd(r);r.g.rotation.x=(r.parts.lean||0)+(r.parts.bobX||0);r.g.rotation.z=r.parts.rollZ||0;r._rx=r.g.rotation.x;headPose(r,-.7*r.g.rotation.x,-.6*r.g.rotation.z);p.y=r.parts.drop||0
   r.g.visible=!(k===rd||seats.includes(k)||r.boarded)} // quem está na viatura não aparece: só o nome sobre o carro
  updCarTag()}
 function showInvite(d){plainMenu();$('mbox').innerHTML=`<b>✉ ${sf(d.from)} convidou você para a sala dele</b><button data-a="acc" data-n="${sf(d.host)}">Aceitar</button><button data-a="rej" style="background:#444">Recusar</button>`;$('menu').style.display='flex';menuT=performance.now()}
