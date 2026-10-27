@@ -1579,6 +1579,27 @@ function camUpdate(dt,P){
  if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*(1-Math.exp(-9*dt));camera.updateProjectionMatrix()}
  car.g.visible=!(riding&&aimOn);if(!driving&&!riding)player.visible=camD>1.1&&!(faint&&faint.onboard)}
 let ph=0,time=0;const clock=new THREE.Clock(),B=262;
+// Caminho real (A* em grade de 1,5 m, janela de 66 m) contornando paredes e objetos; devolve pontos já simplificados.
+// undefined = limite de cálculos por quadro (tenta de novo depois); null = destino inalcançável.
+let routeF=-1,routeN=0;
+function npcRoute(n,p,tx,tz){
+ if(routeF!==fc){routeF=fc;routeN=0}if(routeN>=2)return undefined;routeN++;
+ const C=1.5,H=22,W=H*2+1,N=W*W,ox=p.x-H*C,oz=p.z-H*C,ci=x=>Math.max(0,Math.min(W-1,Math.round((x-ox)/C))),cj=z=>Math.max(0,Math.min(W-1,Math.round((z-oz)/C))),
+  okc=(i,j)=>{const x=ox+i*C,z=oz+j*C;return !collides(x,z,.6)&&inW(x,z)};
+ let gi=ci(tx),gj=cj(tz);
+ if(!okc(gi,gj)){let f=false;for(let r=1;r<=6&&!f;r++)for(let a=-r;a<=r&&!f;a++)for(let b=-r;b<=r;b++){if(Math.max(Math.abs(a),Math.abs(b))!==r)continue;const ni=gi+a,nj=gj+b;if(ni>=0&&ni<W&&nj>=0&&nj<W&&okc(ni,nj)){gi=ni;gj=nj;f=true;break}}if(!f)return null}
+ const si=H,sj=H,g=new Float32Array(N).fill(1e9),par=new Int32Array(N).fill(-1),cl=new Uint8Array(N),hp=[];
+ const hpush=(f,k)=>{hp.push([f,k]);let i=hp.length-1;while(i>0){const q=(i-1)>>1;if(hp[q][0]<=hp[i][0])break;[hp[q],hp[i]]=[hp[i],hp[q]];i=q}};
+ const hpop=()=>{const t=hp[0],l=hp.pop();if(hp.length){hp[0]=l;let i=0;for(;;){const a=2*i+1,b=a+1;let m=i;if(a<hp.length&&hp[a][0]<hp[m][0])m=a;if(b<hp.length&&hp[b][0]<hp[m][0])m=b;if(m===i)break;[hp[m],hp[i]]=[hp[i],hp[m]];i=m}}return t};
+ const hh=(i,j)=>{const dx=Math.abs(i-gi),dz=Math.abs(j-gj);return dx+dz-.586*Math.min(dx,dz)};
+ g[sj*W+si]=0;hpush(hh(si,sj),sj*W+si);let found=false,it=0;
+ while(hp.length&&it++<6000){const k=hpop()[1];if(cl[k])continue;cl[k]=1;const i=k%W,j=(k/W)|0;if(i===gi&&j===gj){found=true;break}
+  for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){if(!a&&!b)continue;const ni=i+a,nj=j+b;if(ni<0||nj<0||ni>=W||nj>=W)continue;const nk=nj*W+ni;if(cl[nk])continue;
+   if(!okc(ni,nj))continue;if(a&&b&&(!okc(i+a,j)||!okc(i,j+b)))continue;const ng=g[k]+(a&&b?1.414:1);if(ng<g[nk]){g[nk]=ng;par[nk]=k;hpush(ng+hh(ni,nj),nk)}}}
+ if(!found)return null;
+ const pts=[];for(let k=gj*W+gi;k>=0&&k!==sj*W+si;k=par[k])pts.push([ox+(k%W)*C,oz+((k/W)|0)*C]);pts.reverse();
+ const wp=[];let cx=p.x,cz=p.z,idx=0;while(idx<pts.length){let best=idx;for(let m=pts.length-1;m>idx;m--){if(npcClear(cx,cz,pts[m][0],pts[m][1])){best=m;break}}wp.push(pts[best]);cx=pts[best][0];cz=pts[best][1];idx=best+1}
+ n.wp=wp;n.wi=0;return wp}
 function npcClear(ax,az,bx,bz){const d=Math.hypot(bx-ax,bz-az),k=Math.max(1,Math.ceil(d/.6));for(let i=1;i<=k;i++){const t=i/k,x=ax+(bx-ax)*t,z=az+(bz-az)*t;if(collides(x,z,.55)||!inW(x,z))return false}return true}
 const inW=(x,z)=>(Math.abs(x)<B&&Math.abs(z)<B)||(x>B&&z>B&&z<340); // mundo aberto OU interiores (banco, esconderijo...) que ficam fora do mapa
 let crouch=false,cov=null,rollEnd=0,rollCd=0,rollDX=0,rollDZ=1,lastMX=0,lastMZ=1,leanOff=0,leanSide=1,leanN=0,blindOff=0,rollWas=false,pvx=0,pvz=0,pSpd=0;const ROLL_T=.62,rollInv=()=>rollEnd>time&&1-(rollEnd-time)/ROLL_T<.62;player.rotation.order='YXZ';let crC=0,covC=0,plMove=false;const vOff={y:0,z:0},covSh={x:0,z:0};
@@ -1602,13 +1623,20 @@ const TRF=[],LANE=[[0,3],[-3,0],[0,-3],[3,0]],TANG=[Math.PI/2,0,-Math.PI/2,Math.
 function mkTraffic(){const cols=[0xc0392b,0x2c6fbb,0xe0b400,0x2e7d4f,0x777777,0xeeeeee,0x6a4a7a,0xd9772b];
  for(let i=0;i<34;i++){const col=pick(cols),c=buildCar(col,false,pick(['sedan','sedan','hatch','suv','pickup'])),hz=Math.random()<.5,rc=(Math.floor(Math.random()*14)-7)*32+16,a=(Math.random()-.5)*400,s=Math.random()<.5?1:-1,dir=hz?(s>0?0:2):(s>0?1:3),L=LANE[dir];
   const o={id:i,g:c.g,dir,mx:hz?a:rc,mz:hz?rc:a,lo:[L[0],L[1]],sp:0,vm:7+Math.random()*4,stall:0,hold:0,bump:0};
-  o.g.position.set(o.mx+L[0],0,o.mz+L[1]);o.g.rotation.y=TANG[dir];o.g.userData.hi=o.g.children.slice();o.g.userData.lo=mkLoCar(col);o.g.userData.veh=VEH[VEH.length-1];scene.add(o.g);TRF.push(o)}}
+  for(let t=0;t<16&&TRF.some(q=>Math.hypot(q.mx+q.lo[0]-(o.mx+L[0]),q.mz+q.lo[1]-(o.mz+L[1]))<9);t++){if(hz)o.mx=(Math.random()-.5)*400;else o.mz=(Math.random()-.5)*400}
+   o.g.position.set(o.mx+L[0],0,o.mz+L[1]);o.g.rotation.y=TANG[dir];o.g.userData.hi=o.g.children.slice();o.g.userData.lo=mkLoCar(col);o.g.userData.veh=VEH[VEH.length-1];scene.add(o.g);TRF.push(o)}}
 function updTraffic(dt){if(inside)return;const P=pos();
  for(const o of TRF){const d=TV[o.dir],p=o.g.position;let stop=o.crash>time;
   const chk=(x,z,pri)=>{const dx=x-p.x,dz=z-p.z,f=dx*d[0]+dz*d[1],l=Math.abs(-dx*d[1]+dz*d[0]);if(f>0&&f<(pri?9:6)&&l<(pri?2.6:3.4))stop=true};
   chk(P.x,P.z,true);if(!driving)chk(car.g.position.x,car.g.position.z,true);
   if(Math.hypot(p.x-P.x,p.z-P.z)<90)for(const n of npcs){if(n.dead||n.boarded||n.custody)continue;const q=n.mesh.position;if(Math.abs(q.x-p.x)<12&&Math.abs(q.z-p.z)<12)chk(q.x,q.z,true)}
-  for(const q of TRF)if(q!==o){if(q.dir===o.dir)chk(q.g.position.x,q.g.position.z,true);else if(q.id<o.id)chk(q.g.position.x,q.g.position.z,false)}
+  {const ry=o.g.rotation.y,F0=Math.sin(ry),F1=Math.cos(ry),R=3.4+o.sp*.55,lx=p.x+F0*R/2,lz=p.z+F1*R/2;
+   const look=g=>{const qp=g.position;if(Math.abs(qp.x-p.x)>R+5||Math.abs(qp.z-p.z)>R+5)return 0;if(!obbX(lx,lz,ry,1.25,R/2,qp.x,qp.z,g.rotation.y,1.05,2.35))return 0;const al=(qp.x-p.x)*F0+(qp.z-p.z)*F1;return al>.3?al:0};
+   for(const q of TRF)if(q!==o){const al=look(q.g);if(!al)continue;const par=Math.abs(F0*Math.sin(q.g.rotation.y)+F1*Math.cos(q.g.rotation.y))>.7;
+    if(par||al<4.4||q.id<o.id){stop=true;break}
+    // cruzamento: o de menor id passa; o outro espera (a menos que o primeiro não veja o segundo)
+    const ry2=q.g.rotation.y,R2=3.4+q.sp*.55,qp=q.g.position;if(!obbX(qp.x+Math.sin(ry2)*R2/2,qp.z+Math.cos(ry2)*R2/2,ry2,1.25,R2/2,p.x,p.z,ry,1.05,2.35)){stop=true;break}}
+   if(!stop)for(const g of trafficObs())if(look(g)){stop=true;break}}
   if(o.stall>0)o.stall-=dt;
   if(stop&&o.stall<=0){o.sp=Math.max(0,o.sp-18*dt);if(o.sp===0){o.hold+=dt;if(o.hold>5){o.stall=2.5;o.hold=0}}}else{o.sp=Math.min(o.vm,o.sp+5*dt);o.hold=0}
   const ox=o.mx,oz=o.mz;o.mx+=d[0]*o.sp*dt;o.mz+=d[1]*o.sp*dt;
@@ -1627,11 +1655,28 @@ function updTraffic(dt){if(inside)return;const P=pos();
      if(!carWall(car.g.position.x-h.nx*k,car.g.position.z-h.nz*k,ch)){car.g.position.x-=h.nx*k*.7;car.g.position.z-=h.nz*k*.7}
      o.jx=(o.jx||0)+h.nx*(k*.5+Math.abs(cs)*.12);o.jz=(o.jz||0)+h.nz*(k*.5+Math.abs(cs)*.12);o.jr=(o.jr||0)+(Math.random()-.5)*Math.min(2,sv*.2);o.crash=time+2.5+Math.min(3,sv*.2);o.sp=0;
      cs=fw>.55?-cs*.35:cs*.6}}}
-   if(time>(o.tb||0)){for(const q of TRF){if(q===o||q.id>o.id)continue;const qp=q.g.position;if(Math.abs(qp.x-p.x)>5||Math.abs(qp.z-p.z)>5)continue;const h=obbHit(o.g,q.g,.05);if(!h)continue;
-      o.tb=q.tb=time+1;const sv=Math.max(o.sp,q.sp);crashDent(o.g,q.g,h,Math.min(.5,.06+sv*.03));
-      o.jx=(o.jx||0)-h.nx*(h.pen*.5+.3);o.jz=(o.jz||0)-h.nz*(h.pen*.5+.3);q.jx=(q.jx||0)+h.nx*(h.pen*.5+.3);q.jz=(q.jz||0)+h.nz*(h.pen*.5+.3);
-      o.sp=Math.min(o.sp,1.5);q.sp=Math.min(q.sp,1.5);o.crash=time+1.8;q.crash=time+1.8;break}}}}
+ }
+ sepPass()}
 let plHit=0;
+
+// retângulos orientados (a, b) se sobrepõem?
+function obbX(ax,az,ar,ahw,ahl,bx,bz,br,bhw,bhl){const ca=Math.cos(ar),sa=Math.sin(ar),cb=Math.cos(br),sb=Math.sin(br),dx=bx-ax,dz=bz-az;
+ const AX=[[ca,-sa],[sa,ca],[cb,-sb],[sb,cb]];
+ for(const q of AX){const pa=ahw*Math.abs(q[0]*ca-q[1]*sa)+ahl*Math.abs(q[0]*sa+q[1]*ca),pb=bhw*Math.abs(q[0]*cb-q[1]*sb)+bhl*Math.abs(q[0]*sb+q[1]*cb);if(Math.abs(dx*q[0]+dz*q[1])>=pa+pb)return false}
+ return true}
+// veículos que o trânsito precisa respeitar: viatura, ambulância, reboque, reforços, carro dos bandidos
+function trafficObs(){const a=[car.g];for(const k in ambs)a.push(ambs[k].g);for(const f of refs)a.push(f.g);if(towTruck)a.push(towTruck.g);if(gcar&&gcar.g&&gcar.g.parent)a.push(gcar.g);return a}
+// ninguém atravessa ninguém: se dois carros se sobrepõem, o que está "de frente" para o outro recua pelo próprio caminho
+function sepBack(m,o,h,nx,nz){const d=TV[m.dir],F0=Math.sin(m.g.rotation.y),F1=Math.cos(m.g.rotation.y),k=Math.max(.3,Math.abs(nx*F0+nz*F1)),dist=Math.min(2.6,(h.pen+.06)/k);
+ m.mx-=d[0]*dist;m.mz-=d[1]*dist;m.g.position.x-=d[0]*dist;m.g.position.z-=d[1]*dist;m.sp=0;m.crash=Math.max(m.crash||0,time+.5)}
+function sepPass(){
+ for(let i=0;i<TRF.length;i++){const a=TRF[i],ap=a.g.position;
+  for(let j=i+1;j<TRF.length;j++){const b=TRF[j],bp=b.g.position;if(Math.abs(ap.x-bp.x)>5||Math.abs(ap.z-bp.z)>5)continue;const h=obbHit(a.g,b.g,.02);if(!h)continue;
+   const aA=(bp.x-ap.x)*Math.sin(a.g.rotation.y)+(bp.z-ap.z)*Math.cos(a.g.rotation.y),aB=(ap.x-bp.x)*Math.sin(b.g.rotation.y)+(ap.z-bp.z)*Math.cos(b.g.rotation.y);
+   const sv=Math.max(a.sp,b.sp);if(sv>3&&time>Math.max(a.tb||0,b.tb||0)){a.tb=b.tb=time+1;crashDent(a.g,b.g,h,Math.min(.5,.05+sv*.03))}
+   if(aA>=aB)sepBack(a,b,h,h.nx,h.nz);else sepBack(b,a,h,h.nx,h.nz)}}
+ const ob=trafficObs();
+ for(const o of TRF){const op=o.g.position;for(const g of ob){const gp=g.position;if(Math.abs(gp.x-op.x)>5||Math.abs(gp.z-op.z)>5)continue;const h=obbHit(o.g,g,.02);if(h)sepBack(o,g,h,h.nx,h.nz)}}}
 // caixa orientada do carro (4,4 x 2 m): empurra quem estiver dentro para fora
 function boxPush(g,x,z,r){const y=g.rotation.y,s=Math.sin(y),c=Math.cos(y),dx=x-g.position.x,dz=z-g.position.z,al=dx*s+dz*c,la=dx*c-dz*s,hl=2.2+r,hw=1+r;if(Math.abs(al)>=hl||Math.abs(la)>=hw)return null;
  const pa=hl-Math.abs(al),pw=hw-Math.abs(la);if(pw<pa){const k=(la<0?-1:1)*pw;return{x:c*k,z:-s*k}}const k=(al<0?-1:1)*pa;return{x:s*k,z:c*k}}
@@ -1988,20 +2033,31 @@ function loop(){
   else if(!crim&&n.fleeT>time){const l=Math.hypot(p.x-P.x,p.z-P.z)||1;sp=4.4;n.pan=time+.3;n.tgt.set(p.x+(p.x-P.x)/l*10,0,p.z+(p.z-P.z)/l*10);n.timer=.4} // civil ferido: foge mancando
   else if(!crim&&!n.cop&&!n.victim&&!n.lair&&!n.hostage&&!inside&&shot&&time-shot.t<4.5&&Math.hypot(p.x-shot.x,p.z-shot.z)<34){const l=Math.hypot(p.x-shot.x,p.z-shot.z)||1,ax=(p.x-shot.x)/l,az=(p.z-shot.z)/l,zz=Math.sin(time*2+n.ph)*3;n.pan=time+1.2;sp=5.6;n.tgt.set(p.x+ax*12-az*zz,0,p.z+az*12+ax*zz);n.timer=.4} // civil perto do tiroteio: foge em pânico
   else if(crim&&n.react==='flee'&&dp<30){sp=5.2;const l=dp||1,zz=Math.sin(time*2.5+n.ph)*4+(n.dodge>time?n.dodgeDir*3:0);n.tgt.set(p.x+(p.x-P.x)/l*10-(P.z-p.z)/l*zz,0,p.z+(p.z-P.z)/l*10+(P.x-p.x)/l*zz);n.timer=.3}
-  n.timer-=dt;if(n.timer<=0){n.tgt.set(p.x+(Math.random()-.5)*30,0,p.z+(Math.random()-.5)*30);n.timer=3+Math.random()*4}
+  n.timer-=dt;if(n.timer<=0){let ok=false;for(let q=0;q<7&&!ok;q++){const an=Math.random()*6.283,r=5+Math.random()*(q<4?24:9),tx=p.x+Math.cos(an)*r,tz=p.z+Math.sin(an)*r;if(npcClear(p.x,p.z,tx,tz)){n.tgt.set(tx,0,tz);ok=true}}if(!ok)n.tgt.set(p.x,0,p.z);n.timer=ok?3+Math.random()*4:.6} // só escolhe destino com caminho livre
+  if(n.dtX!==n.tgt.x||n.dtZ!==n.tgt.z){n.rx=n.tgt.x;n.rz=n.tgt.z} // destino "de verdade" (antes de qualquer desvio temporário)
+  if(n.dtT&&n.rx!=null&&(n.dtT<=time||Math.hypot(p.x-n.dtX,p.z-n.dtZ)<1.3)){ // chegou ao ponto da rota: vai ao próximo; no fim, se o destino ainda está atrás de obstáculo, recalcula
+   if(n.wp&&n.wi<n.wp.length-1){n.wi++;n.dtX=n.wp[n.wi][0];n.dtZ=n.wp[n.wi][1];n.dtT=time+8}
+   else if(!npcClear(p.x,p.z,n.rx,n.rz)){const w=npcRoute(n,p,n.rx,n.rz);if(w&&w.length){n.dtX=w[0][0];n.dtZ=w[0][1];n.dtT=time+8}else if(w===null){n.dtT=0;n.rt=time+2.5}}
+   else{n.dtT=0;n.wp=null}}
   if((n.dtT||0)>time&&!n.hostageOf)n.tgt.set(n.dtX,0,n.dtZ);
   const dx=n.tgt.x-p.x,dz=n.tgt.z-p.z,dd=Math.hypot(dx,dz);let mv=false;
   const tsp=(sp>0&&dd>.4)?sp:0,v0=n.v||0;n.v=v0+(tsp-v0)*Math.min(1,dt*(tsp>v0?7:11));if(!tsp&&n.v<.15)n.v=0; // acelera/freia em vez de ligar/desligar
-  if(n.v>0&&dd>.05){const nx=p.x+dx/dd*n.v*dt,nz=p.z+dz/dd*n.v*dt;
+  let ux=dd>.001?dx/dd:0,uz=dd>.001?dz/dd:0;
+  if(n.v>.3&&dd>.6){ // olha à frente: se há parede/carro/objeto no caminho, contorna (lado sorteado e mantido para não ficar indeciso)
+   const Ld=.9+n.v*.28,bk=(x,z)=>collides(x,z,.52)||!inW(x,z);
+   if((n.stT||0)>time){ux=n.sx;uz=n.sz}
+   else if(bk(p.x+ux*Ld,p.z+uz*Ld)||bk(p.x+ux*Ld*.5,p.z+uz*Ld*.5)){
+    const th=Math.atan2(uz,ux),sg=n.sg||(n.sg=Math.random()<.5?1:-1);let f=false;
+    for(const a of[.6,1.1,1.6,2.2,2.8]){for(const s of[sg,-sg]){const aa=th+a*s,cx=Math.cos(aa),cz=Math.sin(aa);if(!bk(p.x+cx*Ld,p.z+cz*Ld)&&!bk(p.x+cx*Ld*.5,p.z+cz*Ld*.5)){ux=cx;uz=cz;n.sx=cx;n.sz=cz;n.stT=time+.5;f=true;break}}if(f)break}
+    if(!f){n.v=0;n.timer=0;n.sg=-sg}}}
+  if(n.v>0&&dd>.05){const nx=p.x+ux*n.v*dt,nz=p.z+uz*n.v*dt;
    if(!collides(nx,p.z,.5)&&inW(nx,p.z)){p.x=nx;mv=true}if(!collides(p.x,nz,.5)&&inW(p.x,nz)){p.z=nz;mv=true}
-   if(!mv){n.v=0;if(tsp){n.timer=0;n.stuck=(n.stuck||0)+dt}}else{n.stuck=0}if(mv)n.mesh.rotation.y+=wrapA(Math.atan2(dx,dz)-n.mesh.rotation.y)*Math.min(1,dt*14)}
-  n.ck=(n.ck||0)-dt;if(n.ck<=0){n.ck=.45;const lx=n.lx==null?p.x:n.lx,lz=n.lz==null?p.z:n.lz,mvd=Math.hypot(p.x-lx,p.z-lz);
-   if(tsp>2&&n.v>1.2&&mvd<tsp*.45*.3&&!n.tied){n.sk=(n.sk||0)+1;const th=Math.atan2(dz,dx),sg=Math.random()<.5?1:-1;let ok=false;
-    if(n.sk<3)for(const o of[1.57,-1.57,2.4,-2.4,.8,-.8,3.14]){const a=th+o*sg,tx=p.x+Math.cos(a)*7,tz=p.z+Math.sin(a)*7;if(npcClear(p.x,p.z,tx,tz)){n.dtX=tx;n.dtZ=tz;n.dtT=time+1+.3*n.sk;ok=true;break}}
-    if(!ok){for(let q=0;q<8;q++){const a=Math.random()*6.283,tx=p.x+Math.cos(a)*16,tz=p.z+Math.sin(a)*16;if(npcClear(p.x,p.z,tx,tz)){n.dtX=tx;n.dtZ=tz;n.dtT=time+3.2;break}}n.sk=0}
-    n.timer=0}
-   else if(mvd>.4)n.sk=Math.max(0,(n.sk||0)-.34);
-   n.lx=p.x;n.lz=p.z}
+   if(!mv){n.v=0;if(tsp){n.timer=0;n.stuck=(n.stuck||0)+dt}}else{n.stuck=0}if(mv)n.mesh.rotation.y+=wrapA(Math.atan2(ux,uz)-n.mesh.rotation.y)*Math.min(1,dt*14)}
+  n.ck=(n.ck||0)-dt;if(n.ck<=0){n.ck=.8; // vigia: andando mas sem se aproximar do destino (preso em quina/parede) -> novo destino alcançável por uns segundos
+   if(tsp>.8&&!n.tied){const prog=(n.pd==null?dd:n.pd)-dd;if(prog<tsp*.8*.25)n.sk=(n.sk||0)+1;else n.sk=Math.max(0,(n.sk||0)-1);
+    if(n.sk>=2&&(n.rt||0)<=time){n.timer=0;const w=npcRoute(n,p,n.rx==null?n.tgt.x:n.rx,n.rz==null?n.tgt.z:n.rz);if(w&&w.length){n.sk=0;n.dtX=w[0][0];n.dtZ=w[0][1];n.dtT=time+8}else if(w===null){n.sk=0;n.rt=time+2.5;n.v=0}}}
+   else n.sk=0;
+   n.pd=dd}
   if(dp<110&&!n.lodLow&&!n.cull){if(n.tied)tiedPose(n);else{n.ph+=dt*gaitRate(n.v);walk(n.parts,n.ph,n.v>.25,dt,n.v);n.mesh.position.y=n.parts.drop||0;n.mesh.rotation.x=n.parts.lean||0;
    if(n.wm){n._rx=n.mesh.rotation.x;poseArm(n,n.fireAim>time,0)} // segura a arma com as duas mãos (mesma empunhadura do jogador)
    if(n.pan>time){const P2=n.parts,w=Math.sin(time*10+n.ph)*.3;P2.armL.rotation.x=-2.75+w;P2.armR.rotation.x=-2.75-w;if(P2.armL.elbow){P2.armL.elbow.rotation.x=-.25;P2.armR.elbow.rotation.x=-.25}}}}
