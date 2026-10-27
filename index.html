@@ -67,6 +67,20 @@ const pick=a=>a[Math.floor(Math.random()*a.length)];
 const mat=c=>new THREE.MeshLambertMaterial({color:c});
 const scene=new THREE.Scene();scene.background=new THREE.Color(0xdcc9a0);scene.fog=new THREE.Fog(0xdcc9a0,45,185);
 const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,0.1,400);
+// Física (estado): declarado cedo porque dropGun/ragdoll podem ser chamados durante o carregamento
+const GRAV=22,PH_DT=1/60,RAG_MAX=14,phProps=[],ragAct=[];
+const phQ=new THREE.Quaternion(),phQi=new THREE.Quaternion(),phQ2=new THREE.Quaternion(),phM=new THREE.Matrix4(),
+ phA=new THREE.Vector3(),phB=new THREE.Vector3(),phC=new THREE.Vector3(),phD=new THREE.Vector3(),phDN=new THREE.Vector3(0,-1,0),phUP=new THREE.Vector3(0,1,0);
+let phAcc=0;
+
+const SHELL_G=new THREE.CylinderGeometry(.012,.012,.045,6),SHELL_M=new THREE.MeshBasicMaterial({color:0xd4a437});
+const RG_RAD=[.16,.16,.2,.1,.1,.08,.08,.08,.08,.13,.13,.1,.1,.09,.09,.08],RG_CON=[];
+(function(){const add=(a,b,k,lo,hi)=>RG_CON.push([a,b,k==null?1:k,lo==null?1:lo,hi==null?1:hi]),T=[0,1,3,4,9,10,15];
+ for(let i=0;i<T.length;i++)for(let j=i+1;j<T.length;j++)add(T[i],T[j]); // tronco rígido
+ add(2,1);add(2,3,.5);add(2,4,.5);add(2,0,1,.62,1); // pescoço
+ add(3,5);add(5,7);add(3,7,1,.3,1);add(4,6);add(6,8);add(4,8,1,.3,1); // braços (cotovelo dobra, não estica além do osso)
+ add(9,11);add(11,13);add(9,13,1,.35,1);add(10,12);add(12,14);add(10,14,1,.35,1)})(); // pernas
+
 const renderer=new THREE.WebGLRenderer({canvas:$('c'),antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.3;
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
@@ -399,7 +413,47 @@ function setHandWeapon(av,id){
  id=Math.max(0,Math.min(WEAPONS.length-1,id|0));
  if(av.wm){if(av.wm.parent)av.wm.parent.remove(av.wm);av.wm.traverse(o=>{if(o.geometry)o.geometry.dispose()})}
  av.wid=id;av.wm=buildWeapon(id);{const A=av.parts.armR;av.wm.position.y+=A.elbow?.4:0;(A.elbow||A).add(av.wm)}}
+// ---------- Empunhadura tática ----------
+// Só o cassetete (corpo a corpo) é segurado com uma mão. Toda arma de fogo (revólver e pistola inclusive) usa as DUAS mãos
+// andando, correndo ou mirando: a arma fica presa no espaço do personagem e os dois braços chegam até ela por cinemática inversa.
+const GRIP={short:{aim:[[.05,1.64,.52],[0,.02,1]],rdy:[[.08,1.30,.40],[0,-.45,.89]],run:[[.08,1.45,.32],[0,.75,.66]]},   // revólver/pistola
+ long:{aim:[[.07,1.60,.24],[0,.02,1]],rdy:[[.10,1.38,.26],[0,-.25,.97]],run:[[.10,1.40,.28],[0,.70,.71]]}};                  // SMG/escopeta/fuzil: [posição da mão da arma, direção do cano]
+const SUP=[null,[-.05,-.09,-.04],[-.05,-.09,-.05],[0,-.30,-.05],[0,-.30,-.06],[0,-.48,-.06]]; // ponto da arma (coords da arma, y<0 = frente) onde a mão de apoio segura
+const _D=new THREE.Vector3(),_Pr=new THREE.Vector3(),_Y=new THREE.Vector3(),_E=new THREE.Vector3(),_Fo=new THREE.Vector3(),_Z=new THREE.Vector3(),_X=new THREE.Vector3(),_W=new THREE.Vector3(),_G=new THREE.Vector3(),_F=new THREE.Vector3(),_T=new THREE.Vector3(),_U=new THREE.Vector3(),_NF=new THREE.Vector3();
+const _Mw=new THREE.Matrix4(),_Mc=new THREE.Matrix4(),_Mq=new THREE.Matrix4();
+function armIK(A,T,pole,L1,L2){ // braço de 2 segmentos: ombro (A.position) até a mão em T; o cotovelo aponta para "pole"
+ _D.copy(T).sub(A.position);let dist=_D.length()||1e-4;_D.divideScalar(dist);
+ dist=Math.max(Math.abs(L1-L2)+.02,Math.min(L1+L2-.004,dist));
+ const ca=Math.max(-1,Math.min(1,(L1*L1+dist*dist-L2*L2)/(2*L1*dist))),sa=Math.sqrt(1-ca*ca);
+ _Pr.copy(pole);_Pr.addScaledVector(_D,-_Pr.dot(_D));if(_Pr.lengthSq()<1e-6)_Pr.set(0,0,-1);_Pr.normalize();
+ _Y.copy(_D).multiplyScalar(ca).addScaledVector(_Pr,sa);               // direção do braço superior
+ _E.copy(A.position).addScaledVector(_Y,L1);                           // cotovelo
+ _Fo.copy(A.position).addScaledVector(_D,dist).sub(_E).normalize();    // direção do antebraço
+ const c=Math.max(-1,Math.min(1,_Y.dot(_Fo)));
+ _Z.copy(_Fo).addScaledVector(_Y,-c);if(_Z.lengthSq()<1e-8)_Z.copy(_Pr);_Z.normalize();
+ _W.copy(_Y).negate();_X.crossVectors(_W,_Z).normalize();              // base do braço: x = y × z, y = -braço
+ _Mq.makeBasis(_X,_W,_Z);A.quaternion.setFromRotationMatrix(_Mq);
+ if(A.elbow)A.elbow.rotation.x=-Math.acos(c)}                           // cotovelo só dobra para o lado natural
+function resetGrip(av){const P=av.parts;av._gp=false;for(const A of[P.armL,P.armR]){A.rotation.y=0;A.rotation.z=0}
+ if(av.wm){av.wm.position.set(0,-.82+(P.armR.elbow?.4:0),0);av.wm.quaternion.identity()}}
+function gripTwo(av,aiming,rk){const P=av.parts,id=av.wid|0,K=id<=2?GRIP.short:GRIP.long,R=P.armR,L=P.armL;
+ const t=performance.now(),dt=Math.min(.1,(t-(av._gt||t))/1000);av._gt=t;
+ const ga=av._ga=(av._ga||0)+((aiming?1:0)-(av._ga||0))*Math.min(1,dt*14); // transição suave entre andar/correr e mirar
+ const m=(a,b,k)=>a+(b-a)*k;
+ const g0=K.rdy[0],g1=K.run[0],g2=K.aim[0],f0=K.rdy[1],f1=K.run[1],f2=K.aim[1],ph=P.ph0||0;
+ _G.set(m(m(g0[0],g1[0],rk),g2[0],ga)+.01*Math.sin(ph)*rk,m(m(g0[1],g1[1],rk),g2[1],ga)+.018*Math.sin(2*ph)*rk,m(m(g0[2],g1[2],rk),g2[2],ga));
+ _F.set(m(m(f0[0],f1[0],rk),f2[0],ga),m(m(f0[1],f1[1],rk),f2[1],ga),m(m(f0[2],f1[2],rk),f2[2],ga)).normalize();
+ {const th=-.9*(av._rx||0),c=Math.cos(th),s=Math.sin(th),y=_F.y*c-_F.z*s,z=_F.y*s+_F.z*c;_F.y=y;_F.z=z;_F.normalize()} // tronco inclinado (agachado/correndo): o cano mantém a direção
+ _U.set(0,1,0).addScaledVector(_F,-_F.y).normalize();                    // "para cima" da arma
+ _NF.copy(_F).negate();_X.crossVectors(_NF,_U).normalize();_Mw.makeBasis(_X,_NF,_U);_Mw.setPosition(_G);
+ const sp=SUP[Math.max(1,Math.min(5,id))];_T.set(sp[0],sp[1],sp[2]).applyMatrix4(_Mw); // alvo da mão de apoio
+ _Pr.set(1,-1,-.3);armIK(L,_T,_Pr.set(-Math.sign(L.position.x||-1)*.6*-1,-1,-.3),.4,.46);
+ const sx=Math.sign(R.position.x||1);_T.copy(_G).addScaledVector(_F,.04);armIK(R,_T,_Pr.set(sx*.6,-1,-.3),.4,.46);
+ if(av.wm&&R.elbow){R.updateMatrix();R.elbow.updateMatrix();_Mc.multiplyMatrices(R.matrix,R.elbow.matrix).invert();_Mq.multiplyMatrices(_Mc,_Mw);_Mq.decompose(av.wm.position,av.wm.quaternion,av.wm.scale)} // arma presa no espaço do personagem
+ av._gp=true}
 function poseArm(av,aiming,sw){const P=av.parts,a=P.armR,E=a.elbow,id=av.wid|0,rk=aiming?0:(P.run||0),sS=a.rotation.x,sE=E?E.rotation.x:0; // sS/sE = ciclo de passada calculado por walk()
+ if(id>0&&E&&P.armL.elbow&&av.wm&&!av.rag&&!(av===pl&&rollEnd>time)){gripTwo(av,aiming,rk);return} // armas de fogo: duas mãos (correndo e mirando)
+ if(av._gp)resetGrip(av);
  if(id===0){if(sw>0){a.rotation.x=-2.4+(1-sw/.3)*3.0;if(E)E.rotation.x=0}else if(aiming){a.rotation.x=-.9;if(E)E.rotation.x=0}return} // cassetete: braço livre acompanha a passada
  if(aiming){a.rotation.x=-1.5;if(E)E.rotation.x=0;return}
  if(id>=3){ // duas mãos: ao correr, braço direito segura a arma em pé junto ao ombro (sprint da Division); o esquerdo balança livre
@@ -589,7 +643,7 @@ const same=(a,b)=>a.cor===b.cor&&a.bone===b.bone&&a.mochila===b.mochila&&a.altur
 let bankHost=[],bankWarn=false,bodyPos=null,puzAvail=[],puzDone={},puzTries={},puzPool=[],puzRev=0,puzYield=1,pzRun=null,lairT=-99;
 let score=0,missionN=0,crime='',suspect=null,notes=[],clues=[],mtype='invest',timeLeft=0,phase='',robbers=[],gcar=null,bankBeam=null,mDone=true,hp=100,driving=false,cs=0,ch=0,escT=0,near=null,fireCd=0,cdist=1e9;
 const CRIMES=['roubo','homicídio','tráfico de drogas'];
-const pos=()=>driving?car.g.position:player.position;
+const pos=()=>driving?car.g.position:(pl.rag&&!(faint&&faint.onboard)?pl.rag.focus:player.position);
 function msg(t,ms=2200){const m=$('msg');m.textContent=t;m.style.display='block';clearTimeout(msg.t);msg.t=setTimeout(()=>m.style.display='none',ms)}
 function hud(){
  const P=pos();let h='Vá à <b>Central de Polícia</b> (siga o GPS) e escolha uma missão.';
@@ -608,7 +662,7 @@ function clearClues(){clues.forEach(c=>{scene.remove(c.m);if(c.ex)scene.remove(c
 function endMission(win,text,pts=0){if(mDone)return;mDone=true;if(!win)wipeCriminals();else{crm++;if(mtype==='invest'&&crime==='homicídio')per++}pts*=mStars;addPts(pts);if(pts)text+=` ×${mStars}★ = +${pts}`;if(suspect){suspect.isSuspect=false;suspect.armed=false;suspect=null}if(roomCode)send({t:'end',text,pts,w:win?1:0});msg(text,3000);endKid();clearClues();notes=[];if(bankBeam){scene.remove(bankBeam);bankBeam=null}genOffers();hud();saveGame()}
 function neutralize(n,kind,dl){
  n.t0=performance.now();if(n.grab)release(n,true);
- if(kind==='arrest'){n.arrested=true;n.parts.sm.color.set(0x777777)}else{n.dead=true;n.mesh.rotation.z=Math.PI/2;n.mesh.position.y=.35}
+ if(kind==='arrest'){n.arrested=true;n.parts.sm.color.set(0x777777)}else{n.dead=true;ragKillNPC(n)}
  if(kind==='arrest'&&!dl&&!n.lock&&(n.isSuspect||n.robber||n.kid)){n.custody=true;n.remoteBy=null;send({t:'arr',o:n.robber?'r':n.kid?'k':'s',tr:n.traits,pa:n.pants,sk:n.skin,hc:n.hatC,lk:n.look?[n.look.sex,n.look.skin,n.look.hair,n.look.hc,n.look.glasses,n.look.must,n.look.beard,n.look.fc]:null,x:+n.mesh.position.x.toFixed(1),z:+n.mesh.position.z.toFixed(1)});msg('Preso! Leve-o até a delegacia (siga o GPS)',3000);hud();return}
  if(n.bh){score-=15;msg('Um refém morreu! -15 pontos',2200);hud()}else if(n.hostage)endMission(false,'O refém morreu! Missão fracassada');else if(n.isSuspect)endMission(true,kind==='arrest'?'Suspeito preso! +15 pontos':'Suspeito neutralizado. +8 pontos',kind==='arrest'?15:8);
  else if(n.robber){addPts(kind==='arrest'?5:3);msg(kind==='arrest'?'Criminoso preso! +5':'Criminoso abatido! +3',1500);
@@ -624,11 +678,10 @@ function resolve(){const n=near;if(faint||driving||riding||editApp||!n)return;
 function tracer(a,b,col){const g=new THREE.BufferGeometry().setFromPoints([a,b]);const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:col||0xffee88}));scene.add(l);setTimeout(()=>{scene.remove(l);g.dispose()},70)}
 function blocked(ax,az,bx,bz){const d=Math.hypot(bx-ax,bz-az),k=Math.ceil(d/.7);for(let i=1;i<k;i++){const t=i/k;if(collidesH(ax+(bx-ax)*t,az+(bz-az)*t,.05))return true}return false}
 const rc=new THREE.Raycaster();
-function dropGun(n){const g=new THREE.Mesh(new THREE.BoxGeometry(.1,.1,.4),mat(0x111111));g.position.set(n.mesh.position.x+.5,.12,n.mesh.position.z);scene.add(g);setTimeout(()=>scene.remove(g),9000)}
 function grab(n){if(Math.random()>.3+.1*mStars)return;let b=null,bd=14;for(const c of npcs){if(c===n||c.dead||c.arrested||c.hostage||c.cop||c.custody||c.robber||c.kid||c.isSuspect||c.victim||c.hostageOf||c.boarded)continue;const d=Math.hypot(c.mesh.position.x-n.mesh.position.x,c.mesh.position.z-n.mesh.position.z);if(d<bd){bd=d;b=c}}
  if(b){n.grab=b;n.grabT=15;b.hostageOf=n;b.hold=true;msg('O bandido pegou um civil como refém! Atire no bandido!',3000)}}
 function release(n,m){const c=n.grab;if(!c)return;n.grab=null;c.hostageOf=null;c.hold=false;if(m){addPts(10);msg('Civil salvo! +10',1500)}}
-function killCiv(n){const c=n.grab;n.grab=null;c.dead=true;c.t0=performance.now();c.mesh.rotation.z=Math.PI/2;c.mesh.position.y=.35;score-=20;msg('O bandido matou o refém! -20 pontos',2500);hud()}
+function killCiv(n){const c=n.grab;n.grab=null;c.dead=true;c.t0=performance.now();ragKillNPC(c,n.mesh.position);score-=20;msg('O bandido matou o refém! -20 pontos',2500);hud()}
 function hitNPC(n,part,dm){dm=dm||1;
  if(n.hostage||!(n.robber||n.kid||n.isSuspect)){neutralize(n,'kill');return}
  if(mtype==='invest'&&crime==='tráfico de drogas'&&n===suspect&&!n.underFire){msg('Não atire! Prenda o suspeito — a menos que ele atire em vocês primeiro',2400);return}
@@ -677,7 +730,7 @@ function fire(){
  blindOff=(cov&&!aimOn)?(Math.random()-.5)*.75:0;const s=aimShot(),P=player.position;blindOff=0;let fx=s.E.x-P.x,fz=s.E.z-P.z;const l=Math.hypot(fx,fz)||1;fx/=l;fz/=l;
  player.rotation.y=Math.atan2(fx,fz);
  let tg=s.tgt;if(tg&&Math.hypot(tg.mesh.position.x-P.x,tg.mesh.position.z-P.z)>w.range)tg=null;
- tracer(new THREE.Vector3(P.x+fx*.7,1.5,P.z+fz*.7),s.E);
+ tracer(new THREE.Vector3(P.x+fx*.7,1.5,P.z+fz*.7),s.E);ejectCasing(P,fx,fz);
  if(tg)hitNPC(tg,s.part,w.dmg);
  else if(gcar&&gcar.go&&!mDone){const g=gcar.g.position,ax=P.x,az=P.z,dx=s.E.x-ax,dz=s.E.z-az,L2=dx*dx+dz*dz||1,u=Math.max(0,Math.min(1,((g.x-ax)*dx+(g.z-az)*dz)/L2));if(Math.hypot(ax+dx*u-g.x,az+dz*u-g.z)<2.3&&Math.hypot(g.x-ax,g.z-az)<=w.range+2)gcarDamage(w.dmg*14)}
  if(!ammo[eq])msg('Acabou a munição da '+w.s+'!',2000);
@@ -763,7 +816,7 @@ function talkVictim(rem){
  victimN.mesh.rotation.y=Math.atan2(player.position.x-v.x,player.position.z-v.z);
  msg('Vítima: "Fui assaltado! Ele fugiu por ali — olhe a bússola!"',4200);hud()}
 function spawnClues(txt,vk,hid){txt.forEach((s,i)=>{const[x,z]=freePos(2);let ex=null;
-  if(i===0&&vk){const b=buildPerson({shirt:pick(CK.map(k=>COLORS[k])),pants:pick(PANTS),skin:pick(SKIN),scale:1});if(vk===1){b.g.rotation.z=Math.PI/2;b.g.position.set(x,.35,z)}else b.g.position.set(x+1.2,0,z);scene.add(b.g);ex=b.g}
+  if(i===0&&vk){const b=buildPerson({shirt:pick(CK.map(k=>COLORS[k])),pants:pick(PANTS),skin:pick(SKIN),scale:1});if(vk===1){b.g.position.set(x,0,z);b.g.rotation.y=Math.random()*6.283;ragCorpse(b)}else b.g.position.set(x+1.2,0,z);scene.add(b.g);ex=b.g}
   const m=new THREE.Group();
   const d=new THREE.Mesh(new THREE.OctahedronGeometry(.5),new THREE.MeshBasicMaterial({color:0xffe14a}));d.position.y=2.2;m.add(d);
   const b=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,40,8),new THREE.MeshBasicMaterial({color:0xffe14a,transparent:true,opacity:.35}));b.position.y=20;m.add(b);
@@ -897,10 +950,11 @@ function camUpdate(dt,P){
  if(Math.abs(camera.fov-tf)>.05){camera.fov+=(tf-camera.fov)*(1-Math.exp(-9*dt));camera.updateProjectionMatrix()}
  car.g.visible=!(riding&&aimOn);if(!driving&&!riding)player.visible=camD>1.1&&!(faint&&faint.onboard)}
 let ph=0,time=0;const clock=new THREE.Clock(),B=262;
-let crouch=false,cov=null,rollEnd=0,rollCd=0,rollDX=0,rollDZ=1,lastMX=0,lastMZ=1,leanOff=0,blindOff=0,rollWas=false,pvx=0,pvz=0,pSpd=0;const ROLL_T=.95,rollInv=()=>rollEnd>time&&1-(rollEnd-time)/ROLL_T<.62;player.rotation.order='YXZ';let crC=0,covC=0,plMove=false;const vOff={y:0,z:0};
+let crouch=false,cov=null,rollEnd=0,rollCd=0,rollDX=0,rollDZ=1,lastMX=0,lastMZ=1,leanOff=0,blindOff=0,rollWas=false,pvx=0,pvz=0,pSpd=0;const ROLL_T=.62,rollInv=()=>rollEnd>time&&1-(rollEnd-time)/ROLL_T<.62;player.rotation.order='YXZ';let crC=0,covC=0,plMove=false;const vOff={y:0,z:0},covSh={x:0,z:0};
 const aabbD=(b,x,z)=>Math.hypot(Math.max(Math.abs(x-b.x)-b.w/2,0),Math.max(Math.abs(z-b.z)-b.d/2,0));
 function tryCover(rad=1.7){const p=player.position;let b=null,bd=rad;for(const q of cellOf(p.x,p.z)){if(!(q.h!=null||Math.max(q.w,q.d)>=1.6))continue;const d=aabbD(q,p.x,p.z);if(d<bd){bd=d;b=q}}
- if(!b)return false;const ox=p.x-b.x,oz=p.z-b.z,rx=Math.abs(ox)-b.w/2,rz=Math.abs(oz)-b.d/2;cov={c:b,nx:rx>rz?(Math.sign(ox)||1):0,nz:rx>rz?0:(Math.sign(oz)||1),low:b.h!=null&&b.h<1.5};leanOff=0;crouch=cov.low;return true}
+ if(!b)return false;const ox=p.x-b.x,oz=p.z-b.z,rx=Math.abs(ox)-b.w/2,rz=Math.abs(oz)-b.d/2;cov={c:b,nx:rx>rz?(Math.sign(ox)||1):0,nz:rx>rz?0:(Math.sign(oz)||1),low:b.h!=null&&b.h<1.5};{const tx=-cov.nz,tz=cov.nx;cov.fs=shSide*(Math.sign(-Math.cos(camYaw)*tx+Math.sin(camYaw)*tz)||1)} // fs: sentido (±1) ao longo da parede para onde o personagem fica virado
+ leanOff=0;crouch=cov.low;return true}
 function toggleCover(){if(faint||driving||riding||editApp||rollEnd>time)return;if(cov){cov=null;crouch=false}else if(crouch)crouch=false;else if(tryCover())msg(cov.low?'Cobertura baixa: mire para espiar por cima. Toque em SAIR para sair':'Encostado na parede: deslize até a ponta para mirar. Toque em SAIR para sair',2800);else{crouch=true;msg('Agachado — chegue perto de uma parede, carro ou lixeira',1800)}}
 function startRoll(){if(faint||driving||riding||editApp||time<rollCd||rollEnd>time)return;const l=Math.hypot(lastMX,lastMZ)||1;rollDX=lastMX/l;rollDZ=lastMZ/l;rollEnd=time+ROLL_T;rollCd=time+1.5;cov=null;crouch=false;aim=false;$('aimb').style.background='#6e7681'}
 // Cobertura: devolve a chance (0..1) de a parede absorver um tiro vindo de (sx,sz). Ao espiar/atirar o jogador fica exposto.
@@ -911,7 +965,7 @@ const coverBlock=(sx,sz)=>{if(!cov||driving||riding)return 0;const P=player.posi
  else if(time-lastFireT<.5)pr=.5; // tiro cego: a mão/braço aparece
  if(aimOn&&time-lastFireT<.6)pr=Math.min(pr,.1);
  return aimOn||time-lastFireT<.5?Math.max(.03,pr):pr};
-function swapShoulder(){if(faint||driving||riding||editApp)return;shSide=-shSide;if(cov&&aimOn)cov.man=shSide;msg(shSide>0?'Ombro direito':'Ombro esquerdo',700)}
+function swapShoulder(){if(faint||driving||riding||editApp)return;shSide=-shSide;if(cov){if(aimOn)cov.man=shSide;else cov.fs=-cov.fs}msg(shSide>0?'Ombro direito':'Ombro esquerdo',700)}
 {const mk=(id,tx,bg,f)=>{const b=document.createElement('button');b.className='btn';b.id=id;b.textContent=tx;b.style.background=bg;b.addEventListener('pointerdown',e=>{e.preventDefault();f()});$('acts').appendChild(b)};mk('rollb','ROLAR','#2f6f9f',startRoll);mk('covb','COBERT.','#7a5a2a',toggleCover);mk('shb','⇄','#8957e5',swapShoulder);{const q=$('shb');q.style.width=q.style.height='38px';q.style.fontSize='17px';q.title='Trocar ombro'}}
 const TRF=[],LANE=[[0,3],[-3,0],[0,-3],[3,0]],TANG=[Math.PI/2,0,-Math.PI/2,Math.PI],TV=[[1,0],[0,1],[-1,0],[0,-1]];
 function mkTraffic(){const cols=[0xc0392b,0x2c6fbb,0xe0b400,0x2e7d4f,0x777777,0xeeeeee,0x6a4a7a,0xd9772b];
@@ -950,25 +1004,47 @@ function carVsPeds(){if(inside||carHp<=0)return;const g=car.g,mv=driving&&Math.a
 mkTraffic();
 // IA: criminosos procuram objeto entre eles e o jogador, correm até lá, ficam agachados e espiam por cima (baixo) ou pela lateral (alto) para atirar
 // Agachar: coxas à frente e joelhos dobrados, corpo desce e recua. Rolar: encolhe, dobra pernas/braços e gira em torno do centro do corpo (sem afundar no chão)
-const RK={th:[0,.45,1.2,2,2.6,3.14,4,5.2,5.95,6.2,6.283], // inclinação do tronco (rad, giro completo para a frente)
- hh:[1.04,.95,.9,.98,1,.95,.85,.35,.5,.85,1.04], // altura do quadril
- ph:[0,-.5,-1,-.5,.3,.2,-1.5,-1.8,-1.2,-.4,0], // coxas (relativo ao tronco)
- kn:[0,.5,.9,.6,.3,.3,2.3,2.3,1.5,.5,0], // joelhos
- sh:[0,-.6,-1.4,-2.3,-2.6,-3,-.3,-.2,-.4,-.3,0], // ombros
- el:[0,-.5,-.4,-.3,-.3,-.3,-1.6,-1.6,-1.2,-.5,0], // cotovelos
- sp:[3.6,6.4,6.2,3.4,1.9,1.2]}; // velocidade ao longo do rolamento (m/s)
+const RK={th:[0,.55,1.4,2.4,3.3,4.2,5.1,5.8,6.15,6.27,6.283], // inclinação do tronco (rad, giro completo para a frente)
+ hh:[1.54,1.3,1,.7,.6,.6,.65,.75,1.05,1.35,1.54], // altura do EIXO de giro (meio do tronco, RPIV acima do quadril): baixa na inversão = bola compacta, não "bananeira"
+ ph:[0,-.9,-1.9,-2.3,-2.3,-2.3,-2.2,-1.8,-1,-.4,0], // coxas (relativo ao tronco): recolhidas contra o peito
+ kn:[0,1,2.2,2.6,2.6,2.6,2.5,2,1.2,.5,0], // joelhos
+ sh:[0,-1,-1.8,-1.4,-1.3,-1.3,-1.3,-1,-.6,-.3,0], // ombros: braços abraçam as pernas
+ el:[0,-.4,-.6,-1.4,-1.6,-1.6,-1.5,-1.2,-.8,-.3,0], // cotovelos
+ sp:[9,15,14,9,5.5,3.5]}; // velocidade ao longo do rolamento (m/s): ~6,2 m em .62 s
+const RPIV=.5; // distância do eixo de giro acima do quadril
 function rkAt(T,u){const n=T.length-1,x=Math.max(0,Math.min(1,u))*n,i=Math.min(n-1,Math.floor(x)),f=x-i,p0=T[Math.max(0,i-1)],p1=T[i],p2=T[i+1],p3=T[Math.min(n,i+2)];
  return p1+.5*f*(p2-p0+f*(2*p0-5*p1+4*p2-p3+f*(3*(p1-p2)+p3-p0)))}
-function bodyPose(){const P=pl.parts,rolling=rollEnd>time;let rx=rolling?0:(P.lean||0),sc=1,oy=-.41*crC+(rolling?0:(P.drop||0)*(1-crC)),oz=-.447*crC-.3*covC,tk=0,u=0;
+// Agachado (referência: vídeo de caminhada agachada): agachamento profundo, tronco inclinado ~30°, cabeça erguida, passos curtos e rápidos com o pé rente ao chão.
+// Pernas por cinemática inversa no plano lateral: o pé desliza para trás no apoio (sem patinar) e volta à frente com pequena elevação.
+const CR={H:.5,D:.3,LEAN:.55,L:.52,LIFT:.11,HEEL:.08}; // H: altura do quadril; D: pé à frente do quadril; LEAN: inclinação do tronco (rad)
+const crS=v=>.12+.07*v,crRate=v=>6.2832*.55*v/(2*crS(v)); // meio-passo cresce com a velocidade; fase proporcional ao deslocamento
+function crLeg(hy,fz){const L=CR.L,D=Math.min(Math.hypot(fz,hy),2*L-.002),b=Math.atan2(fz,hy),a=Math.acos(D/(2*L)),g=Math.acos(Math.max(-1,Math.min(1,(2*L*L-D*D)/(2*L*L))));return[-(b+a),Math.PI-g]} // [coxa (ângulo no mundo), joelho]
+function crouchPose(P){
+ const w=P._wa==null?0:P._wa,v=Math.max(.3,Math.hypot(pvx,pvz)),S=crS(v)*w,th=[0,0],kn=[0,0],pw=[0,0];
+ const H=CR.H+.022*w*Math.cos(2*ph); // leve sobe-e-desce a cada passo
+ for(let i=0;i<2;i++){let t=((ph+i*Math.PI)/6.2832)%1;if(t<0)t+=1;let x,lift=0,sw=0;
+  if(t<.55)x=S*(1-2*t/.55);else{const k=(t-.55)/.45,e=k*k*(3-2*k);x=S*(-1+2*e);sw=Math.sin(Math.PI*k);lift=CR.LIFT*w*sw}
+  const r=crLeg(H-lift,CR.D+x);th[i]=r[0];kn[i]=r[1];pw[i]=CR.HEEL+.3*sw}
+ return{H,lean:CR.LEAN+.03*w*Math.sin(2*ph+.6),th,kn,pw,w}}
+function bodyPose(){if(pl.rag){vOff.y=0;vOff.z=0;return}const P=pl.parts,rolling=rollEnd>time,cp=!rolling&&crC>.001?crouchPose(P):null;let rx=rolling?0:(P.lean||0),sc=1,oy=rolling?0:(P.drop||0),oz=0,tk=0,u=0;
+ if(cp){const hb=(1.04+(P.drop||0))*(1-crC)+cp.H*crC;rx=(P.lean||0)*(1-crC)+cp.lean*crC;oy=hb-1.04*Math.cos(rx);oz=-1.04*Math.sin(rx)-CR.D*crC} // gira em torno do quadril: ele fica baixo e atrás dos pés
+ const dh=cp?-.65*rx:0; // cabeça fica mais erguida que o tronco
+ pl._rx=rolling?0:rx; // usado pela empunhadura para manter o cano apontado certo
  if(rolling){ // rolamento estilo Dark Souls: tronco dobra no quadril, cambalhota para a frente, pouso encolhido e levanta em agachamento. Sem encolher o corpo.
   u=1-(rollEnd-time)/ROLL_T;tk=Math.max(0,Math.min(1,u/.08,(1-u)/.08));tk=tk*tk*(3-2*tk);
-  const th=rkAt(RK.th,u),ps=rkAt(RK.ph,u),kn=rkAt(RK.kn,u),m=Math.min(0,1.1*Math.cos(th),-.52*Math.cos(th+ps),-.52*Math.cos(th+ps)-.52*Math.cos(th+ps+kn)),H=Math.max(rkAt(RK.hh,u),-m); // nunca atravessa o chão
-  rx=th;oy=H-1.04*Math.cos(th);oz=-1.04*Math.sin(th)} // gira em torno do quadril
+  const th=rkAt(RK.th,u),ps=rkAt(RK.ph,u),kn=rkAt(RK.kn,u),ct=Math.cos(th),a=RPIV,m=Math.min(-a*ct,(1.2-a)*ct,-.52*Math.cos(th+ps)-a*ct,-.52*Math.cos(th+ps)-.52*Math.cos(th+ps+kn)-a*ct),H=Math.max(rkAt(RK.hh,u),-m-.12); // nunca afunda mais que 12 cm no chão
+  rx=th;oy=H-(1.04+a)*ct;oz=-(1.04+a)*Math.sin(th)} // gira em torno do meio do tronco
  if(faint&&!faint.onboard){rx=-Math.PI/2;oy=0;oz=0;player.position.y=.3}player.rotation.x=rx;player.scale.set(sc*(aimOn&&((cov&&cov.s)||shSide)<0?-1:1),sc,sc);vOff.y=oy;vOff.z=oz;
- const f=Math.max(crC,tk),lr=rolling?rkAt(RK.ph,u):-1.45,lk=rolling?rkAt(RK.kn,u):1.45;for(const L of[P.legL,P.legR]){L.rotation.x=lr*f+L.rotation.x*(1-f);L.knee.rotation.x=lk*f+L.knee.rotation.x*(1-f)}
- if(crC>.2&&plMove&&!rolling){const s=Math.sin(ph)*.5*crC;P.legL.rotation.x+=s;P.legR.rotation.x-=s;P.legL.knee.rotation.x+=Math.max(0,-s)*1.2;P.legR.knee.rotation.x+=Math.max(0,s)*1.2}
+ if(dh!==0||pl._ht){pl._ht=dh!==0;const sy=.884,c=Math.cos(dh),sn=Math.sin(dh),hy=1.86*(1-HD)+.06;for(const h of[P.hd,pl.lg])if(h){h.rotation.x=dh;h.position.y=hy+sy*(1-c);h.position.z=-sy*sn}} // gira a cabeça em torno do pescoço (cabelo/óculos acompanham)
+ const f=Math.max(crC,tk);
+ for(let i=0;i<2;i++){const L=i?P.legR:P.legL,lr=rolling?rkAt(RK.ph,u):(cp?cp.th[i]-cp.lean:0),lk=rolling?rkAt(RK.kn,u):(cp?cp.kn[i]:0);
+  L.rotation.x=lr*f+L.rotation.x*(1-f);L.knee.rotation.x=lk*f+L.knee.rotation.x*(1-f);
+  const q=cp?(cp.pw[i]-(rx+L.rotation.x+L.knee.rotation.x))*crC:0,s1=P.shoes[2*i],s2=P.shoes[2*i+1];if(s1)s1.rotation.x=q;if(s2)s2.rotation.x=q} // sapato acompanha o chão (não gira junto com a canela)
  if(rolling){const aS=rkAt(RK.sh,u),aE=rkAt(RK.el,u);for(const A of[P.armL,P.armR]){A.rotation.x=aS*tk+A.rotation.x*(1-tk);if(A.elbow)A.elbow.rotation.x=aE*tk+A.elbow.rotation.x*(1-tk)}}
- else P.armL.rotation.x=-.7*crC+P.armL.rotation.x*(1-crC)}
+ else if(cp&&!((pl.wid|0)>0&&pl._gp)){const sw=.13*Math.sin(ph)*cp.w,gl=-.8-cp.lean,A=P.armL,R=P.armR; // braços dobrados à frente do peito, com contrabalanço leve
+  A.rotation.x=(gl+sw)*crC+A.rotation.x*(1-crC);if(A.elbow)A.elbow.rotation.x=-1.35*crC+A.elbow.rotation.x*(1-crC);
+  if((pl.wid|0)>0||swingT>0||aimOn)R.rotation.x-=cp.lean*crC*.9; // braço da arma mantém a direção apesar do tronco inclinado
+  else{R.rotation.x=(gl-sw)*crC+R.rotation.x*(1-crC);if(R.elbow)R.elbow.rotation.x=-1.35*crC+R.elbow.rotation.x*(1-crC)}}}
 function coverProt(n){const q=n.cv;if(n.cs!=='hide'||!q)return false;const p=n.mesh.position,P=player.position;if(Math.hypot(q.x-p.x,q.z-p.z)>1.4)return false;
  const ox=q.cx-p.x,oz=q.cz-p.z,sx=P.x-p.x,sz=P.z-p.z,lo=Math.hypot(ox,oz)||1,ls=Math.hypot(sx,sz)||1;return(ox*sx+oz*sz)/(lo*ls)>.3}
 function findCover(p,P){let best=null,bd=1e9;
@@ -988,6 +1064,119 @@ function coverAI(n,p,P,dp,dt){if(n.grab||n.down>0)return -1;if(n.sy0==null)n.sy0
   if(time>n.csT)n.cs='back';return 0}
  if(n.cs==='back'){if(Math.hypot(q.x-p.x,q.z-p.z)>.8){n.tgt.set(q.x,0,q.z);n.timer=.4;return 4.8}n.cs='hide';n.csT=time+1+Math.random()*1.4}
  return 0}
+// ---------- Física: gravidade geral + ragdoll ----------
+// GRAV vale para tudo que sai do chão: corpos (ragdoll), armas largadas e cápsulas de bala.
+// --- Objetos soltos (arma, cápsula): queda, quique, atrito e repouso ---
+function throwProp(m,v,w,o){o=o||{};m.rotation.order='YXZ';scene.add(m);
+ const p={m,v,w:w||new THREE.Vector3(),h:o.h==null?.05:o.h,e:o.e==null?.35:o.e,life:o.life||9,age:0,rad:o.rad||.1,own:!!o.own,sleep:false,kind:o.kind||''};phProps.push(p);return p}
+function phPropStep(dt){
+ for(let i=phProps.length-1;i>=0;i--){const p=phProps[i],m=p.m;p.age+=dt;
+  if(p.age>p.life||!m.parent){if(m.parent)m.parent.remove(m);if(p.own&&m.geometry)m.geometry.dispose();phProps.splice(i,1);continue}
+  if(p.sleep)continue;
+  const q=m.position,ox=q.x,oz=q.z;p.v.y-=GRAV*dt;
+  q.x+=p.v.x*dt;q.y+=p.v.y*dt;q.z+=p.v.z*dt;
+  m.rotation.x+=p.w.x*dt;m.rotation.y+=p.w.y*dt;m.rotation.z+=p.w.z*dt;
+  if(collidesH(q.x,q.z,p.rad)){q.x=ox;q.z=oz;p.v.x*=-.4;p.v.z*=-.4}
+  if(q.y<=p.h){q.y=p.h;
+   if(p.v.y<-1.5){p.v.y*=-p.e;p.v.x*=.55;p.v.z*=.55;p.w.multiplyScalar(.6)}
+   else{p.v.y=0;const k=Math.max(0,1-10*dt);p.v.x*=k;p.v.z*=k;p.w.multiplyScalar(k);
+    if(p.v.x*p.v.x+p.v.z*p.v.z<.03&&p.w.lengthSq()<.3){p.sleep=true;m.rotation.x=m.rotation.z=0}}}}}
+function ejectCasing(P,fx,fz){let c=0;for(const p of phProps)if(p.kind==='shell')c++;
+ if(c>24)for(const p of phProps)if(p.kind==='shell'){p.age=p.life+1;break}
+ const m=new THREE.Mesh(SHELL_G,SHELL_M),rx=fz,rz=-fx,k=1.6+Math.random();m.position.set(P.x+rx*.25+fx*.4,1.25,P.z+rz*.25+fz*.4);
+ throwProp(m,new THREE.Vector3(rx*k-fx*.4,2.2+Math.random()*1.2,rz*k-fz*.4),new THREE.Vector3((Math.random()-.5)*30,0,(Math.random()-.5)*30),{h:.012,e:.45,life:4,rad:.02,kind:'shell'})}
+function dropGun(n){const g=new THREE.Mesh(new THREE.BoxGeometry(.1,.1,.4),mat(0x111111)),p=n.mesh.position;g.position.set(p.x+.3,1.1,p.z);
+ throwProp(g,new THREE.Vector3((Math.random()-.5)*3,2+Math.random()*1.5,(Math.random()-.5)*3),new THREE.Vector3((Math.random()-.5)*14,(Math.random()-.5)*14,(Math.random()-.5)*14),{h:.06,e:.3,life:9,rad:.15,own:true})}
+
+// --- Ragdoll (Verlet): 16 pontos ligados por restrições de distância ---
+// 0 pelve, 1 peito, 2 cabeça, 3/4 ombros E/D, 5/6 cotovelos, 7/8 mãos, 9/10 quadris, 11/12 joelhos, 13/14 tornozelos, 15 barriga (dá espessura ao tronco)
+function ragRest(P){const ax=Math.abs(P.armR.position.x)||.3,lx=Math.abs(P.legR.position.x)||.125;
+ return[[0,1.08,0],[0,1.7,0],[0,2,0],[-ax,1.76,0],[ax,1.76,0],[-ax,1.36,0],[ax,1.36,0],[-ax,.9,0],[ax,.9,0],[-lx,1.04,0],[lx,1.04,0],[-lx,.52,0],[lx,.52,0],[-lx,.08,0],[lx,.08,0],[0,1.42,.17]]}
+// o = {g, parts, lg?|lk?, tag?}: personagem a virar boneco de pano (a pose animada atual é o ponto de partida)
+function ragStart(o,opt){
+ if(o.rag)return o.rag;opt=opt||{};
+ const g=o.g,P=o.parts,s=Math.abs(g.scale.x)||1,rest=ragRest(P),sc0=g.scale.clone(),yaw=g.rotation.y,hy=P.hd.position.y;
+ g.scale.setScalar(s);g.updateMatrixWorld(true);
+ const W=(ob,x,y,z)=>ob.localToWorld(new THREE.Vector3(x,y,z)),
+  w=[W(g,0,1.08,0),W(g,0,1.7,0),W(g,0,2,0),W(P.armL,0,0,0),W(P.armR,0,0,0),W(P.armL.elbow,0,0,0),W(P.armR.elbow,0,0,0),W(P.armL.elbow,0,-.46,0),W(P.armR.elbow,0,-.46,0),
+   W(P.legL,0,0,0),W(P.legR,0,0,0),W(P.legL.knee,0,0,0),W(P.legR.knee,0,0,0),W(P.legL.knee,0,-.44,0),W(P.legR.knee,0,-.44,0),W(g,0,1.42,.17)],
+  v=opt.v||{x:0,y:0,z:0},im=opt.imp||{x:0,y:0,z:0},jt=opt.jit==null?1.2:opt.jit,h=PH_DT;
+ const p=w.map((q,i)=>{const r=RG_RAD[i]*s,k=(i>=1&&i<=4)?1:(i>=9&&i<=14)?.35:.7,
+   vx=v.x+im.x*k+(Math.random()-.5)*jt,vy=v.y+im.y*k+(Math.random()-.5)*jt*.5,vz=v.z+im.z*k+(Math.random()-.5)*jt,y=Math.max(q.y,r);
+  return{x:q.x,y,z:q.z,px:q.x-vx*h,py:y-vy*h,pz:q.z-vz*h,r}});
+ const c=RG_CON.map(k=>{const a=rest[k[0]],b=rest[k[1]],L=Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2])*s;return{a:k[0],b:k[1],k:k[2],min:L*k[3],max:L*k[4]}});
+ const rg={o,g,p,c,s,sc0,yaw,hy,t:0,still:0,sleep:false,focus:new THREE.Vector3()};
+ o.rag=rg;ragAct.push(rg);ragApply(rg);
+ if(ragAct.length>RAG_MAX){const old=ragAct[0];if(old!==rg)ragSettle(old,300)} // limite de corpos simulando: o mais antigo assenta de imediato
+ return rg}
+function phWall(p){ // empurra o ponto para fora de prédios e obstáculos
+ const a=cellOf(p.x,p.z),r=p.r;
+ for(let i=0;i<a.length;i++){const b=a[i];if(b.h!=null&&p.y-r>b.h)continue;
+  const hw=b.w/2+r,hd=b.d/2+r,dx=p.x-b.x,dz=p.z-b.z;
+  if(Math.abs(dx)<hw&&Math.abs(dz)<hd){if(hw-Math.abs(dx)<hd-Math.abs(dz))p.x=b.x+(dx<0?-hw:hw);else p.z=b.z+(dz<0?-hd:hd)}}}
+function ragStep(rg){
+ const pts=rg.p,con=rg.c,h=PH_DT,n=pts.length,g2=GRAV*h*h,mx=30*h,lim=B-1,cars=[]; // carros próximos (viatura e trânsito) empurram o corpo
+ if(!inside){if(car&&car.g)cars.push(car.g);const x0=pts[0].x,z0=pts[0].z;for(let i=0;i<TRF.length;i++){const q=TRF[i].g.position;if(Math.abs(q.x-x0)<9&&Math.abs(q.z-z0)<9)cars.push(TRF[i].g)}}
+ for(let i=0;i<n;i++){const p=pts[i];let vx=(p.x-p.px)*.996,vy=(p.y-p.py)*.996,vz=(p.z-p.pz)*.996;
+  const sp=Math.sqrt(vx*vx+vy*vy+vz*vz);if(sp>mx){const k=mx/sp;vx*=k;vy*=k;vz*=k}
+  p.px=p.x;p.py=p.y;p.pz=p.z;p.x+=vx;p.y+=vy-g2;p.z+=vz}
+ for(let it=0;it<6;it++){
+  for(let j=0;j<con.length;j++){const c=con[j],a=pts[c.a],b=pts[c.b];let dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;
+   const d=Math.sqrt(dx*dx+dy*dy+dz*dz)||1e-6,t=d<c.min?c.min:d>c.max?c.max:d;if(t===d)continue;
+   const f=(d-t)/d*.5*c.k;dx*=f;dy*=f;dz*=f;a.x+=dx;a.y+=dy;a.z+=dz;b.x-=dx;b.y-=dy;b.z-=dz}
+  for(let i=0;i<n;i++){const p=pts[i];if(p.y<p.r)p.y=p.r;
+   if(p.x>lim)p.x=lim;else if(p.x<-lim)p.x=-lim;if(p.z>lim)p.z=lim;else if(p.z<-lim)p.z=-lim;
+   phWall(p);if(p.y<1.6)for(let c=0;c<cars.length;c++){const b=boxPush(cars[c],p.x,p.z,p.r);if(b){p.x+=b.x;p.z+=b.z}}}}
+ let mv=0; // chão: quique pequeno e atrito
+ for(let i=0;i<n;i++){const p=pts[i];
+  if(p.y<=p.r+.002){const vy=p.y-p.py;if(vy<-.02)p.py=p.y+vy*.25;p.px=p.x-(p.x-p.px)*.88;p.pz=p.z-(p.z-p.pz)*.88}
+  const vx=p.x-p.px,vy=p.y-p.py,vz=p.z-p.pz,e=vx*vx+vy*vy+vz*vz;if(e>mv)mv=e}
+ rg.t+=h;rg.still=mv<(.35*h)*(.35*h)?rg.still+1:0;
+ if(rg.still>40||rg.t>7)rg.sleep=true}
+// pose do esqueleto do modelo a partir dos pontos simulados
+function ragApply(rg){
+ const p=rg.p,o=rg.o,P=o.parts,g=o.g,s=rg.s;
+ const up=phA.set(p[1].x-p[0].x,p[1].y-p[0].y,p[1].z-p[0].z).normalize(),r0=phB.set(p[4].x-p[3].x,p[4].y-p[3].y,p[4].z-p[3].z),
+  fw=phC.crossVectors(r0,up).normalize(),rt=phD.crossVectors(up,fw).normalize();
+ phM.makeBasis(rt,up,fw);phQ.setFromRotationMatrix(phM);g.quaternion.copy(phQ);g.scale.setScalar(s);
+ g.position.set(p[0].x-up.x*1.08*s,p[0].y-up.y*1.08*s,p[0].z-up.z*1.08*s);
+ rg.focus.set(p[0].x,0,p[0].z);phQi.copy(phQ).conjugate();
+ const limb=(A,E,a,b,c)=>{phA.set(p[b].x-p[a].x,p[b].y-p[a].y,p[b].z-p[a].z).normalize().applyQuaternion(phQi);A.quaternion.setFromUnitVectors(phDN,phA);
+  phB.set(p[c].x-p[b].x,p[c].y-p[b].y,p[c].z-p[b].z).normalize().applyQuaternion(phQi).applyQuaternion(phQ2.copy(A.quaternion).conjugate());E.quaternion.setFromUnitVectors(phDN,phB)};
+ limb(P.armL,P.armL.elbow,3,5,7);limb(P.armR,P.armR.elbow,4,6,8);limb(P.legL,P.legL.knee,9,11,13);limb(P.legR,P.legR.knee,10,12,14);
+ // cabeça: gira em torno do pescoço (o grupo da cabeça tem o pivô na cintura, então compensa a posição)
+ phA.set(p[2].x-p[1].x,p[2].y-p[1].y,p[2].z-p[1].z).normalize().applyQuaternion(phQi);
+ phQ2.setFromUnitVectors(phUP,phA);phB.set(0,1.8-rg.hy,0).applyQuaternion(phQ2);
+ P.hd.quaternion.copy(phQ2);P.hd.position.set(-phB.x,1.8-phB.y,-phB.z);
+ const lg=o.lg||(o.lk&&o.lk.lg);if(lg){lg.quaternion.copy(phQ2);lg.position.copy(P.hd.position)}
+ ragTag(o)}
+function ragTag(o){const rg=o.rag;if(!rg||!o.tag)return; // etiqueta de nome flutua sobre a cabeça, mesmo com o corpo deitado
+ phQi.copy(o.g.quaternion).conjugate();phA.set(rg.p[2].x,rg.p[2].y+.75,rg.p[2].z).sub(o.g.position).applyQuaternion(phQi).divideScalar(rg.s);o.tag.position.copy(phA)}
+function ragDrop(rg){const i=ragAct.indexOf(rg);if(i>=0)ragAct.splice(i,1);rg.sleep=true}
+function ragSettle(rg,steps){for(let i=0;i<steps&&!rg.sleep;i++)ragStep(rg);ragApply(rg);ragDrop(rg)}
+function ragEnd(o){const rg=o.rag;if(!rg)return;ragDrop(rg);o.rag=null;
+ const g=o.g,P=o.parts;g.quaternion.identity();g.rotation.set(0,rg.yaw,0);g.scale.copy(rg.sc0);
+ for(const L of[P.armL,P.armR,P.legL,P.legR]){L.quaternion.identity();const e=L.elbow||L.knee;if(e)e.quaternion.identity()}
+ P.hd.quaternion.identity();P.hd.position.set(0,rg.hy,0);const lg=o.lg||(o.lk&&o.lk.lg);if(lg){lg.quaternion.identity();lg.position.set(0,rg.hy,0)}
+ if(o.tag)o.tag.position.set(0,2.55,0);g.position.y=0}
+function physStep(dt){
+ phPropStep(dt);
+ if(pl.rag){if(!faint)ragEnd(pl);else if(faint.onboard&&!pl.rag.sleep)pl.rag.sleep=true}
+ phAcc+=dt;let k=0;while(phAcc>=PH_DT&&k<3){phAcc-=PH_DT;k++;for(let i=0;i<ragAct.length;i++)ragStep(ragAct[i])}if(phAcc>PH_DT*3)phAcc=0;
+ for(let i=ragAct.length-1;i>=0;i--){const rg=ragAct[i];if(!rg.g.parent){ragDrop(rg);continue}ragApply(rg);if(rg.sleep)ragDrop(rg)}}
+// --- Gatilhos: quem morreu ou desmaiou vira boneco de pano ---
+function ragKillNPC(n,from){
+ const m=n.mesh;if(n.sy0!=null)m.scale.y=n.sy0;if(n.down>0)m.position.y=0;
+ if(n.armed){n.armed=false;dropGun(n)}
+ const F=from||pos(),dx=m.position.x-F.x,dz=m.position.z-F.z,dl=Math.hypot(dx,dz)||1,w=WEAPONS[eq]||{},f=from?3:(w.melee?2:3+1.5*(w.dmg||1)),
+  sp=n.down>0?0:(n.v||0),ry=m.rotation.y;
+ return ragStart({g:m,parts:n.parts,get lg(){return n.lk&&n.lk.lg}},{v:{x:Math.sin(ry)*sp,y:0,z:Math.cos(ry)*sp},imp:{x:dx/dl*f,y:1.8+f*.25,z:dz/dl*f}})}
+function ragFaintPlayer(){const y=player.rotation.y;
+ ragStart(pl,{v:{x:pvx||0,y:0,z:pvz||0},imp:{x:-Math.sin(y)*1.5,y:1.2,z:-Math.cos(y)*1.5}})}
+function ragFaintRemote(r){if(r.rag)return;ragStart(r,{v:{x:r.vx||0,y:0,z:r.vz||0},imp:{x:0,y:1,z:0}})}
+function ragCorpse(b){ // cadáver de cena de crime: já nasce caído e assentado
+ const a=Math.random()*6.283;ragStart(b,{imp:{x:Math.sin(a)*2,y:1.5,z:Math.cos(a)*2}});ragSettle(b.rag,360)}
+// ---------- /Física ----------
 function loop(){
  requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.1);time+=dt;fc++;updRemotes(dt);updSvc(dt);if(shootHeld&&WEAPONS[eq].auto)fire();
  {const em=$('menu').style.display==='flex'&&$('menu').classList.contains('ap');if(editApp&&!em){editApp=false;document.body.classList.remove('edit');$('menu').classList.remove('ap');yawT=camYaw=edSave.y;pitchT=camPitch=edSave.p}}
@@ -1003,12 +1192,14 @@ function loop(){
   if(did===null&&Math.abs(cs)>2){let d=ch-yawT;d=Math.atan2(Math.sin(d),Math.cos(d));yawT+=d*Math.min(1,dt*2.5)}
  }else if(riding){pvx=pvz=0;
   // a posição acompanha a viatura; quem dirige é outro jogador (ou você, em outra sessão)
- }else if(rollEnd>time){const p=player.position,u=1-(rollEnd-time)/ROLL_T,rs=rkAt(RK.sp,u),nx=p.x+rollDX*rs*dt,nz=p.z+rollDZ*rs*dt,Z=ZB||{x0:-B,x1:B,z0:-B,z1:B}; // arranca rápido e desacelera até levantar
-  if(!collides(nx,p.z,.6))p.x=Math.max(Z.x0,Math.min(Z.x1,nx));if(!collides(p.x,nz,.6))p.z=Math.max(Z.z0,Math.min(Z.z1,nz));player.rotation.y=Math.atan2(rollDX,rollDZ);pvx=rollDX*rs;pvz=rollDZ*rs;ph+=dt*14
+ }else if(rollEnd>time){const p=player.position,u=1-(rollEnd-time)/ROLL_T,rs=rkAt(RK.sp,u),Z=ZB||{x0:-B,x1:B,z0:-B,z1:B}; // arranca muito rápido e desacelera até levantar
+  const ns=Math.max(1,Math.ceil(rs*dt/.25)),sx=rollDX*rs*dt/ns,sz=rollDZ*rs*dt/ns; // passos de até 25 cm: em alta velocidade não atravessa parede
+  for(let k=0;k<ns;k++){const nx=p.x+sx,nz=p.z+sz;if(!collides(nx,p.z,.6))p.x=Math.max(Z.x0,Math.min(Z.x1,nx));if(!collides(p.x,nz,.6))p.z=Math.max(Z.z0,Math.min(Z.z1,nz))}
+  player.rotation.y=Math.atan2(rollDX,rollDZ);pvx=rollDX*rs;pvz=rollDZ*rs;ph+=dt*14
  }else{
   const p=player.position,Z=ZB||{x0:-B,x1:B,z0:-B,z1:B};let tvx=0,tvz=0;
   if(moving){const m=Math.min(1,len);ix/=len;iy/=len;
-   let ux=-ix*Math.cos(camYaw)-iy*Math.sin(camYaw),uz=ix*Math.sin(camYaw)-iy*Math.cos(camYaw);lastMX=ux;lastMZ=uz;if(cov){const tx=-cov.nz,tz=cov.nx,kk=ux*tx+uz*tz;ux=tx*kk;uz=tz*kk}
+   let ux=-ix*Math.cos(camYaw)-iy*Math.sin(camYaw),uz=ix*Math.sin(camYaw)-iy*Math.cos(camYaw);lastMX=ux;lastMZ=uz;if(cov){const tx=-cov.nz,tz=cov.nx,kk=ux*tx+uz*tz;if(Math.abs(kk)>.3)cov.fs=kk>0?1:-1;ux=tx*kk;uz=tz*kk}
    let v=m<.6?1.1+Math.max(0,m-.12)/.48*1.9:m<.74?3+(m-.6)/.14*1.6:4.6+(m-.74)/.26*1.8; // analógico: empurrou pouco = anda devagar; empurrou muito = corre (máx. 6,4 m/s)
    if(keys.shift)v=Math.min(v,2.8);if(aimOn||crouch||cov)v=Math.min(v,3);
    tvx=ux*v;tvz=uz*v;
@@ -1018,7 +1209,7 @@ function loop(){
    if(el<=st){pvx=tvx;pvz=tvz}else{pvx+=ex/el*st;pvz+=ez/el*st}}
   if(pvx||pvz){const nx=p.x+pvx*dt,nz=p.z+pvz*dt;
    if(!collides(nx,p.z,.6))p.x=Math.max(Z.x0,Math.min(Z.x1,nx));else pvx=0;if(!collides(p.x,nz,.6))p.z=Math.max(Z.z0,Math.min(Z.z1,nz));else pvz=0}
-  {const sp=Math.hypot(pvx,pvz);if(sp>.05)ph+=dt*gaitRate(sp)}}
+  {const sp=Math.hypot(pvx,pvz);if(sp>.05)ph+=dt*(crC>.5?crRate(sp):gaitRate(sp))}}
  {const p=player.position,rolling=rollEnd>time;
   if(rolling){rollWas=true}else if(rollWas){rollWas=false;if(tryCover())msg('Em cobertura',700)}
   if(crouch&&!cov&&!rolling&&!aimOn)tryCover(.95);
@@ -1027,21 +1218,22 @@ function loop(){
   if(cov&&!rolling){
    if(aabbD(cov.c,p.x,p.z)>1.5){cov=null;leanOff=0}else{
     if(!cov.home){const qx=p.x-cov.nx*4*dt,qz=p.z-cov.nz*4*dt;if(!collides(qx,qz,.6)){p.x=qx;p.z=qz}}
-    if(!aimOn){const fd=cov.low?-1:1;let d=Math.atan2(fd*cov.nx,fd*cov.nz)-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*12)}
+    if(!aimOn){let d=Math.atan2(-cov.fs*cov.nz,cov.fs*cov.nx)-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*12)}
     const tx=-cov.nz,tz=cov.nx,b=cov.c;
     // lado da mira: perto da ponta da parede = lado dessa ponta; no meio = ombro escolhido (ou troca manual)
     {const tl=tx?b.w:b.d,off=(p.x-b.x)*tx+(p.z-b.z)*tz,rs=Math.sign(-Math.cos(camYaw)*tx+Math.sin(camYaw)*tz)||1,nearEnd=Math.abs(off)>tl/2-1.5,es=(Math.sign(off)||1)*rs;
      if(!aimOn)cov.man=0;
      cov.edge=cov.low||nearEnd; // parede alta: só dá para mirar perto da ponta; cobertura baixa: mira por cima em qualquer ponto
-     cov.pk=nearEnd?es:shSide;cov.s=cov.man||(cov.low?(nearEnd?es:shSide):cov.pk);cov.sg=cov.pk*rs;
+     cov.pk=nearEnd?es:cov.fs*rs;cov.s=cov.man||cov.pk;cov.sg=cov.pk*rs;
      if(!cov.low&&!aimOn&&!cov.home){const lim=Math.max(0,tl/2-.3);if(Math.abs(off)>lim){const d=(Math.sign(off)*lim-off)*Math.min(1,dt*10);p.x+=tx*d;p.z+=tz*d}}}
     if(!cov.low&&aimOn){ // espiar pela quina: desliza até a ponta da parede; volta ao soltar a mira
      if(!cov.home)cov.home={x:p.x,z:p.z}
-     const dS=cov.sg*(tx||tz),goal=(tx?b.x:b.z)+dS*((tx?b.w:b.d)/2+.9),cur=tx?p.x:p.z,st=Math.max(-7*dt,Math.min(7*dt,goal-cur)),nx2=tx?p.x+st:p.x,nz2=tx?p.z:p.z+st;
+     const dS=cov.sg*(tx||tz),goal=(tx?b.x:b.z)+dS*((tx?b.w:b.d)/2+.05),cur=tx?p.x:p.z,st=Math.max(-7*dt,Math.min(7*dt,goal-cur)),nx2=tx?p.x+st:p.x,nz2=tx?p.z:p.z+st;
      if(!collides(nx2,nz2,.5)){p.x=nx2;p.z=nz2}}
     else if(cov.home){const hx=cov.home.x-p.x,hz=cov.home.z-p.z,dd=Math.hypot(hx,hz);
      if(dd<.12)cov.home=null;else{const st=Math.min(dd,7*dt),nx2=p.x+hx/dd*st,nz2=p.z+hz/dd*st;if(!collides(nx2,nz2,.5)){p.x=nx2;p.z=nz2}else cov.home=null}}}}
   crC+=(((crouch||(cov&&cov.low))&&!aimOn&&!rolling?1:0)-crC)*Math.min(1,dt*12);covC+=(((cov&&!cov.low)&&!aimOn&&!rolling?1:0)-covC)*Math.min(1,dt*12);
+  {const hug=cov&&!rolling?(cov.low?.2:.18):0,k=Math.min(1,dt*10);covSh.x+=((cov?-cov.nx*hug:0)-covSh.x)*k;covSh.z+=((cov?-cov.nz*hug:0)-covSh.z)*k} // corpo encosta na parede (só visual)
   const cb=$('covb');if(cb)cb.textContent=cov?'SAIR':crouch?'LEVANTAR':'COBERT.'}
  if(aimOn){let d=camYaw-player.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));player.rotation.y+=d*Math.min(1,dt*16)}
  pSpd=Math.hypot(pvx,pvz);plMove=pSpd>.3&&!driving&&!(rollEnd>time);walk(pl.parts,ph,plMove,dt,pSpd);if(swingT>0)swingT=Math.max(0,swingT-dt);poseArm(pl,aimOn,swingT);bodyPose();
@@ -1103,7 +1295,7 @@ function loop(){
  if(n.bar){n.bar.visible=en;if(en){const p=n.mesh.position,r=Math.max(.001,(n.hp==null?100:n.hp)/100),f=n.bar.userData.f;n.bar.position.set(p.x,n.mesh.scale.y*2.7+p.y,p.z);n.bar.quaternion.copy(camera.quaternion);f.scale.x=r;f.position.x=-.5*(1-r)}}}
  camUpdate(dt,P);if(aimOn&&(fc&3)===0)$('xh').style.borderColor=aimShot().tgt?'#ff5a5a':'#ffffffcc';
  sky.position.copy(camera.position);sun.position.set(P.x+50,52,P.z+30);sun.target.position.set(P.x,0,P.z);
- gps();ctxUpdate();sendPres();updCarFx();updTraffic(dt);carVsPeds();{const yw=player.rotation.y,ox=Math.sin(yw)*vOff.z,oz=Math.cos(yw)*vOff.z,pp=player.position;pp.x+=ox;pp.y+=vOff.y;pp.z+=oz;renderer.render(scene,camera);pp.x-=ox;pp.y-=vOff.y;pp.z-=oz}
+ gps();ctxUpdate();sendPres();updCarFx();updTraffic(dt);carVsPeds();physStep(dt);{const yw=player.rotation.y,ox=Math.sin(yw)*vOff.z+covSh.x,oz=Math.cos(yw)*vOff.z+covSh.z,pp=player.position;pp.x+=ox;pp.y+=vOff.y;pp.z+=oz;renderer.render(scene,camera);pp.x-=ox;pp.y-=vOff.y;pp.z-=oz}
 }
 // ---------- Conta, social e multiplayer (servidor próprio) ----------
 let aim=false,nick='',myKey='',friends=[],roomCode='',roomMembers=[],remotes={},playing=false,offline=false,lastPres=0,ws=null,authRes=null,reconT=null,noRecon=false,token=null,entering=false;
@@ -1240,11 +1432,12 @@ function updRemotes(dt){
   if(r.drv&&!st){ // viatura dirigida por outro jogador: segue os pontos interpolados (sem engasgar)
    const c=car.g,f=1-Math.exp(-40*dt);c.position.x+=(s.x-c.position.x)*f;c.position.z+=(s.z-c.position.z)*f;c.rotation.y+=wrapA(s.r-c.rotation.y)*Math.min(1,dt*25);
    r.g.visible=false;p.x=s.x;p.z=s.z;continue}
+  if(r.fnt&&!r.boarded){if(!r.rag)ragFaintRemote(r);ragTag(r);r.g.visible=!(k===rd||seats.includes(k));continue} // desmaiado: o ragdoll cuida da pose
   const f=1-Math.exp(-30*dt),dx=s.x-p.x,dz=s.z-p.z;
   if(Math.hypot(dx,dz)>14){p.x=s.x;p.z=s.z}else{p.x+=dx*f;p.z+=dz*f}
   const sp=dt>0?Math.hypot(dx,dz)*f/dt:0;const rsp=Math.min(sp,7);r.ph+=dt*gaitRate(Math.max(rsp,.5));walk(r.parts,r.ph,sp>.8,dt,rsp);poseArm(r,false,0);
   r.g.rotation.y+=wrapA(s.r-r.g.rotation.y)*Math.min(1,dt*14);
-  if(r.fnt&&!r.boarded){walk(r.parts,0,false);r.g.rotation.x=-Math.PI/2;p.y=.3}else{r.g.rotation.x=r.parts.lean||0;p.y=r.parts.drop||0}
+  if(r.rag)ragEnd(r);r.g.rotation.x=r.parts.lean||0;p.y=r.parts.drop||0
   r.g.visible=!(k===rd||seats.includes(k)||r.boarded)} // quem está na viatura não aparece: só o nome sobre o carro
  updCarTag()}
 function showInvite(d){plainMenu();$('mbox').innerHTML=`<b>✉ ${sf(d.from)} convidou você para a sala dele</b><button data-a="acc" data-n="${sf(d.host)}">Aceitar</button><button data-a="rej" style="background:#444">Recusar</button>`;$('menu').style.display='flex';menuT=performance.now()}
@@ -1375,7 +1568,7 @@ function flash(o){const on=Math.floor(time*6)%2;o.lights[0].material.color.set(o
 
 // --- Desmaio e ambulância ---
 function faintStart(){if(faint)return;if(driving)leaveCar(false);aim=false;$('aimb').style.background='#6e7681';cov=null;crouch=false;cs=0;player.visible=true;
- faint={t0:time,called:false,onboard:false};
+ faint={t0:time,called:false,onboard:false};ragFaintPlayer();
  if(!mDone&&allDown())endMission(false,Object.keys(remotes).length?'Todos os policiais caíram! Missão perdida':'Você desmaiou! Missão perdida');else msg(mDone?'Você desmaiou! A ambulância será acionada…':'Você desmaiou! Seus parceiros seguem na missão.',3000);
  send({t:'faint',on:1,x:+player.position.x.toFixed(1),z:+player.position.z.toFixed(1)})}
 function buildAmb(){const c=buildCar(0xf4f4f4,true),rm=new THREE.MeshBasicMaterial({color:0xd22222});
@@ -1387,7 +1580,7 @@ function ambCall(key,bc){if(ambs[key])return;let vx,vz;
  b.g.position.set(sx,0,sz);if(go.length>1)b.g.rotation.y=Math.atan2(go[1][0]-sx,go[1][1]-sz);scene.add(b.g);
  ambs[key]={g:b.g,lights:b.lights,wp:go,rev:go.slice().reverse(),i:1,ph:'go',t:0};
  if(bc)send({t:'amb',who:key});if(key===myKey)msg('🚑 Ambulância a caminho!',2500)}
-function ambFinish(){const fee=Math.min(money,AMB_FEE),free=fee<=0;money-=fee;hp=100;faint=null;player.visible=true;
+function ambFinish(){ragEnd(pl);const fee=Math.min(money,AMB_FEE),free=fee<=0;money-=fee;hp=100;faint=null;player.visible=true;
  let x=HOSP.x+2;for(const d of[0,3,-3,6,-6,9]){if(!collides(HOSP.x+2+d,HOSP.z+11.5,.6)){x=HOSP.x+2+d;break}}
  toWorld(x,HOSP.z+11.5);cs=0;
  msg(free?'🚑 Você foi socorrido no hospital. Atendimento gratuito (sem dinheiro)':'🚑 Você foi socorrido no hospital. Taxa: -R$ '+fee+(fee<AMB_FEE?' (todo o seu dinheiro)':''),3800);
