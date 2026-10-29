@@ -587,11 +587,11 @@ function buildPerson(o){
  const up=[],fo=[],arm=x=>{const p=new THREE.Bone();p.position.set(x,1.76,0);up.push(add(G.upper,sm,0,0,0,p));up[up.length-1].userData.p='a';const el=new THREE.Bone();el.position.y=-.4;p.add(el);p.elbow=el;const wr=new THREE.Bone();wr.position.y=-.4;el.add(wr);p.wrist=wr;fo.push(add(G.fore,skm,0,.4,0,el));fo[fo.length-1].userData.p='a';g.add(p);return p},armL=arm(-.3),armR=arm(.3);
  const cop=!!o.cop||o.shirt===POLICE_SHIRT;let capM=null;
  if(o.hat){capM=[];const hm=mat(o.hatColor),blk=mat(0x0a0a0c),gold=new THREE.MeshLambertMaterial({color:0xd4af37,emissive:0x2a2208}),A=(geo,m,x,y,z,rx,sx,sy,sz)=>{const q=add(geo,m,x,y,z||0,hd);q.userData.p='h';if(rx)q.rotation.x=rx;if(sx)q.scale.set(sx,sy,sz);capM.push(q);return q};
-  if(cop){A(new THREE.CylinderGeometry(.272,.3,.125,26),hm,0,2.115);A(new THREE.CylinderGeometry(.335,.285,.028,26),hm,0,2.195,-.01);A(new THREE.CylinderGeometry(.303,.303,.05,26),blk,0,2.062);A(new THREE.TorusGeometry(.306,.011,6,26),gold,0,2.098,0,Math.PI/2);A(new THREE.BoxGeometry(.4,.016,.2),blk,0,2.04,.3,.16);A(new THREE.CylinderGeometry(.042,.034,.012,6),gold,0,2.125,.292,Math.PI/2-.12)}
-  else{A(new THREE.SphereGeometry(.3,24,10,0,Math.PI*2,0,1.3),hm,0,2.0,0,0,1,.85,1.04);A(new THREE.BoxGeometry(.32,.022,.22),hm,0,2.06,.3,.1);A(new THREE.SphereGeometry(.022,8,6),hm,0,2.255,0)}}
+  if(cop){A(new THREE.CylinderGeometry(.285,.305,.17,26),hm,0,2.215);A(new THREE.CylinderGeometry(.345,.29,.03,26),hm,0,2.315,-.01);A(new THREE.CylinderGeometry(.308,.308,.05,26),blk,0,2.13);A(new THREE.TorusGeometry(.311,.011,6,26),gold,0,2.162,0,Math.PI/2);A(new THREE.BoxGeometry(.4,.016,.2),blk,0,2.105,.3,.16);A(new THREE.CylinderGeometry(.042,.034,.012,6),gold,0,2.23,.298,Math.PI/2-.12)}
+  else{A(new THREE.SphereGeometry(.3,24,10,0,Math.PI*2,0,1.3),hm,0,2.04,0,0,1,.98,1.04);A(new THREE.BoxGeometry(.32,.022,.22),hm,0,2.11,.3,.1);A(new THREE.SphereGeometry(.022,8,6),hm,0,2.335,0)}}
  if(o.pack)add(new THREE.BoxGeometry(.5,.6,.22),mat(0x4b3a2a),0,1.4,-.3);
  g.scale.setScalar(o.scale||1);
- const parts={legL,legR,armL,armR,sm,head,skm,hd,tor,pel,belt,buckle,neckM,belly,bust,upL:up[0],upR:up[1],foL:fo[0],foR:fo[1],thL:th[0],thR:th[1],shL:sh[0],shR:sh[1],shoes,cap:capM,capRim:cop?1.45:1.25,cop};
+ const parts={legL,legR,armL,armR,sm,head,skm,hd,tor,pel,belt,buckle,neckM,belly,bust,upL:up[0],upR:up[1],foL:fo[0],foR:fo[1],thL:th[0],thR:th[1],shL:sh[0],shR:sh[1],shoes,cap:capM,capRim:1.25,cop};
  try{ // esqueleto + malha contínua; as malhas antigas ficam invisíveis só como zonas de acerto (tiro/sangue)
   const pelB=new THREE.Bone(),spn=new THREE.Bone(),chs=new THREE.Bone();pelB.position.set(0,1.04,0);spn.position.set(0,.18,0);chs.position.set(0,.28,0);g.add(pelB);pelB.add(spn);spn.add(chs);
   const bones=[pelB,spn,chs,legL,legL.knee,legL.ankle,legL.toe,legR,legR.knee,legR.ankle,legR.toe,armL,armL.elbow,armL.wrist,armR,armR.elbow,armR.wrist];
@@ -868,7 +868,7 @@ function applyLook(av,L){
  // cabelo: com boné o cabelo só aparece abaixo da aba (laterais e nuca); coque, rabo e topete ficam por baixo/dentro do boné
  const hm=D(HAIRC[L.hc]),ps=PI/2+.75,pl2=2*PI-1.5,hat=!!(P.cap&&!L.hat),rim=P.capRim||1.25,H=L.hair;
  if(P.cap)P.cap.forEach(m=>{m.visible=hat;m.raycast=hat?THREE.Mesh.prototype.raycast:()=>{}});
- const crown=(tl,dh,r,m)=>{r=r||.285;m=m||hm;return hat?sh(r*.975,2,-.012,ps,pl2,rim,dh,m):sh(r,2,-.01,ps,pl2,0,tl,m)};
+ const crown=(tl,dh,r,m)=>{r=r||.285;m=m||hm;return hat?sh(r*1.05,2,-.012,ps,pl2,rim-.06,dh+.26,m):sh(r,2,-.01,ps,pl2,0,tl,m)};
  const cyl=(r0,r1,h,x,y,z,rx,rz)=>{const o=new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,8),hm);o.position.set(x,y,z);o.rotation.set(rx||0,0,rz||0);lg.add(o);return o};
  const ball=(r,x,y,z,sx,sy,sz)=>{const o=new THREE.Mesh(new THREE.SphereGeometry(r,14,10),hm);o.position.set(x,y,z);o.scale.set(sx||1,sy||1,sz||1);lg.add(o);return o};
  if(H===1)crown(1.55,.4);
@@ -1987,6 +1987,11 @@ function updTraffic(dt){if(inside)return;const P=pos();
    if(!stop)for(const g of trafficObs())if(look(g)){stop=true;break}}
   if(o.stall>0)o.stall-=dt;
   if(stop&&o.stall<=0){o.sp=Math.max(0,o.sp-18*dt);if(o.sp===0){o.hold+=dt;if(o.hold>5){o.stall=2.5;o.hold=0}}}else{o.sp=Math.min(o.vm,o.sp+5*dt);o.hold=0}
+  // vigia: se o carro não andou 8 m em alguns segundos (fila atrás da viatura, impasse no cruzamento), ele some em outro ponto da cidade ou dá meia-volta
+  if(o.wx==null){o.wx=p.x;o.wz=p.z;o.wait=0}
+  if(Math.hypot(p.x-o.wx,p.z-o.wz)>8){o.wx=p.x;o.wz=p.z;o.wait=0}else{o.wait+=dt;
+   const far=Math.hypot(p.x-P.x,p.z-P.z)>70;
+   if(o.wait>(far?5:11)){o.wait=0;if(!(far&&respawnCar(o))){o.dir=(o.dir+2)%4;o.stall=3;o.hold=0}o.wx=o.g.position.x;o.wz=o.g.position.z;continue}}
   const ox=o.mx,oz=o.mz;o.mx+=d[0]*o.sp*dt;o.mz+=d[1]*o.sp*dt;
   const h=o.dir%2===0,a0=h?ox:oz,a1=h?o.mx:o.mz,s=h?d[0]:d[1],k0=Math.floor((a0-16)/32),k1=Math.floor((a1-16)/32);
   if(k0!==k1){const c=(s>0?k1:k0)*32+16;if(h)o.mx=c;else o.mz=c;
@@ -2006,6 +2011,12 @@ function updTraffic(dt){if(inside)return;const P=pos();
  }
  sepPass()}
 let plHit=0;
+// reposiciona um carro do trânsito em outra rua, longe do jogador e dos outros carros
+function respawnCar(o){const P=pos();
+ for(let t=0;t<24;t++){const hz=Math.random()<.5,rc=(Math.floor(Math.random()*14)-7)*32+16,a=(Math.random()-.5)*400,s=Math.random()<.5?1:-1,dir=hz?(s>0?0:2):(s>0?1:3),L=LANE[dir],mx=hz?a:rc,mz=hz?rc:a,x=mx+L[0],z=mz+L[1],dp=Math.hypot(x-P.x,z-P.z);
+  if(dp<(t<16?100:60))continue;if(TRF.some(q=>q!==o&&Math.hypot(q.g.position.x-x,q.g.position.z-z)<10))continue;
+  o.dir=dir;o.mx=mx;o.mz=mz;o.lo=[L[0],L[1]];o.sp=o.vm*.5;o.stall=0;o.hold=0;o.wait=0;o.crash=0;o.jx=o.jz=o.jr=0;o.g.position.set(x,0,z);o.g.rotation.y=TANG[dir];o.wx=x;o.wz=z;return true}
+ return false}
 
 // retângulos orientados (a, b) se sobrepõem?
 function obbX(ax,az,ar,ahw,ahl,bx,bz,br,bhw,bhl){const ca=Math.cos(ar),sa=Math.sin(ar),cb=Math.cos(br),sb=Math.sin(br),dx=bx-ax,dz=bz-az;
