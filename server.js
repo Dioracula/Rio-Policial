@@ -9,7 +9,7 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'users.json');
 const MAX_USERS = +process.env.MAX_USERS || 5000;
 const NICK = /^[A-Za-z0-9_]{3,12}$/, MAXMSG = 8192, MAXROOM = 4, SESSION_MS = 30 * 864e5;
-const LOOK_MAX = { skin: 8, hair: 19, hc: 8, glasses: 4, must: 3, beard: 4, fc: 8, sex: 2, nose: 6, eye: 6, eyeS: 6, mouth: 6, brow: 4, face: 5, hat: 2 };
+const LOOK_MAX = { skin: 8, hair: 15, hc: 8, glasses: 4, must: 3, beard: 4, fc: 8, sex: 2, nose: 6, eye: 6, eyeS: 6, mouth: 6, brow: 4, face: 5, hat: 3 };
 function cleanLook(l) {
   const o = {}; l = l && typeof l === 'object' ? l : {};
   for (const k in LOOK_MAX) { const v = Math.floor(+l[k]); o[k] = v >= 0 && v < LOOK_MAX[k] ? v : (k === 'skin' ? 2 : 0); }
