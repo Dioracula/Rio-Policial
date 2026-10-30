@@ -479,7 +479,8 @@ function handle(c, m) {
       const dr = r.driver === me && +m.d === 1;
       if (dr) r.car = { x, z, r: rr, h: int(m.h == null ? 100 : m.h, 0, 100) };
       if (r.members.length < 2) return;
-      const o = { t: 'pres', n: u.nick, x, z, r: rr, u: +num(m.u, -40, 40).toFixed(2), w: +num(m.w, -40, 40).toFixed(2), d: dr ? 1 : 0, q: int(m.q, 0, 9), lv: int(m.lv, 0, 100), k: int(m.k, 0, 9) };
+      const o = { t: 'pres', n: u.nick, x, z, r: rr, u: +num(m.u, -40, 40).toFixed(2), w: +num(m.w, -40, 40).toFixed(2), d: dr ? 1 : 0, q: int(m.q, 0, 9), lv: int(m.lv, 0, 100), k: int(m.k, 0, 9),
+        mo: int(m.mo, 0, 2), mx: +num(m.mx, -2000, 2000).toFixed(2), mz: +num(m.mz, -2000, 2000).toFixed(2), mr: +num(m.mr, -10, 10).toFixed(2), ow: typeof m.ow === 'string' ? m.ow.slice(0, 24).toLowerCase() : '' }; // moto de cada jogador (mo: 0 a pé, 1 pilotando, 2 na garupa de 'ow')
       if (dr) o.h = r.car.h;
       for (const k of r.members) if (k !== me) { const x = online.get(k); if (x) x.send(o); }
       break;
